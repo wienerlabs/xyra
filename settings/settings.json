@@ -18,6 +18,10 @@
   "edit_predictions": {
     "mode": "eager"
   },
+  "agent": {
+    "dock": "right",
+    "default_width": 480
+  },
   "agent_servers": {
     "Grok Build": {
       "type": "custom",

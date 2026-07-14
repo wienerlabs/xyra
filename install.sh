@@ -27,6 +27,12 @@ if [ -f "$ZED_CONFIG_DIR/settings.json" ]; then
   echo "  mevcut settings.json yedeklendi: $BACKUP"
 fi
 cp "$REPO_DIR/settings/settings.json" "$ZED_CONFIG_DIR/settings.json"
+for EXTRA in tasks.json keymap.json; do
+  if [ -f "$ZED_CONFIG_DIR/$EXTRA" ]; then
+    cp "$ZED_CONFIG_DIR/$EXTRA" "$ZED_CONFIG_DIR/$EXTRA.bak.$(date +%Y%m%d%H%M%S)"
+  fi
+  cp "$REPO_DIR/settings/$EXTRA" "$ZED_CONFIG_DIR/$EXTRA"
+done
 mkdir -p "$ZED_CONFIG_DIR/themes"
 cp "$REPO_DIR/settings/themes/xyra.json" "$ZED_CONFIG_DIR/themes/xyra.json"
 cp "$REPO_DIR/assets/xyra-icon.png" "$ZED_CONFIG_DIR/xyra-icon.png"

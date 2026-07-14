@@ -1,0 +1,40 @@
+[
+  {
+    "label": "Grok: work on this repo",
+    "command": "grok",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Grok: review current file",
+    "command": "grok",
+    "args": ["Review $ZED_FILE and propose minimal fixes. Do not touch unrelated code."],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Grok: agent dashboard",
+    "command": "grok",
+    "args": ["dashboard"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Claude: work on this repo",
+    "command": "claude",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Claude: continue last session",
+    "command": "claude",
+    "args": ["--continue"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  }
+]

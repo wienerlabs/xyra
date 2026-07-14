@@ -4,27 +4,28 @@
 
 <h1 align="center">Xyra</h1>
 
-<p align="center">Wiener Labs'ın dahili kod editörü. Zed tabanlı, Grok Build ve Claude Code entegre, yapay zeka öncelikli.</p>
+<p align="center">Wiener Labs' internal code editor. Zed-based, agent-first, with Grok Build and Claude Code built into a single panel.</p>
 
-## Ne kurar
+## What it installs
 
-`install.sh` hiçbir binary dağıtmaz; her şeyi resmi kaynaklardan kurar ve üzerine Wiener yapılandırmasını giydirir:
+`install.sh` ships no binaries; everything is installed from official sources, then layered with the Wiener configuration:
 
-- Zed editörü (resmi Homebrew cask), Xyra adı ve simgesiyle
-- Xyra teması: logodan türetilmiş lime ve yeşil-kara palet, koyu ve açık varyant, sistem temasını izler
-- Grok Build CLI (xAI resmi cask) ve Zed agent paneline ACP entegrasyonu
-- JetBrains Mono Nerd Font (editör, arayüz ve terminal), VSCode tuş düzeni, blok imleç, Zeta tab tamamlama ayarı
-- `xyra` terminal komutu
+- Zed editor (official Homebrew cask), renamed and branded as Xyra
+- Xyra theme: lime and near-black palette derived from the logo, dark and light variants, follows the system appearance
+- Grok Build CLI (official xAI cask) wired into the agent panel over ACP
+- Editor tasks and keyboard shortcuts for driving agents without leaving the editor
+- JetBrains Mono Nerd Font (editor, UI and terminal), VSCode keymap, block cursor, Zeta edit predictions
+- The `xyra` terminal command
 
-Kurulum sonrası tek panelde üç katman kullanılır: Grok Build (abonelik kotası, 8 paralel agent), Claude Code (yerleşik) ve istenirse yerel Ollama modelleri.
+After install, one panel gives you three layers: Grok Build (subscription quota, up to 8 parallel agents), Claude Code (built in), and optional local Ollama models.
 
-## Gereksinimler
+## Requirements
 
-- macOS ve [Homebrew](https://brew.sh)
-- Grok Build için kişisel SuperGrok veya X Premium+ aboneliği
-- İsteğe bağlı: Claude Code hesabı, Ollama
+- macOS and [Homebrew](https://brew.sh)
+- A personal SuperGrok or X Premium+ subscription for Grok Build
+- Optional: a Claude Code account, Ollama
 
-## Kurulum
+## Install
 
 ```bash
 git clone https://github.com/wienerlabs/xyra.git
@@ -32,29 +33,41 @@ cd xyra
 ./install.sh
 ```
 
-macOS ilk çalıştırmada Terminal için "Uygulama Yönetimi" izni isteyebilir; izin verip scripti tekrar çalıştırmak yeterlidir.
+macOS may ask for the "App Management" permission for Terminal on first run; grant it and run the script again.
 
-## İlk açılış
+## First launch
 
-1. Terminalde `grok login --oauth` çalıştırın ve kendi X hesabınızla giriş yapın. Kota aboneliğinizden düşer, API anahtarı gerekmez.
-2. Xyra'yı açın, sağ üstten GitHub ile giriş yapın. Bu, Zeta tab tamamlamayı etkinleştirir.
-3. Agent panelini açın (cmd+?), + menüsünden Grok Build'i seçin. Claude Code da aynı menüde yerleşik gelir.
+1. Run `grok login --oauth` in a terminal and sign in with your own X account. Usage draws from your subscription quota, no API key needed.
+2. Open Xyra and sign in with GitHub from the top right. This enables Zeta edit predictions.
+3. Open the agent panel (cmd+?) and pick Grok Build from the + menu. Claude Code ships in the same menu.
 
-Kota takibi için Grok Build içinde `/usage` komutunu kullanın.
+Track quota from inside Grok Build with the `/usage` command.
 
-## Güncelleme
+## Daily driving
 
-Xyra kendi içinden otomatik güncellenir; Homebrew'a bağlı değildir (kurulum scripti brew kaydını bilinçli olarak kaldırır, böylece `brew upgrade` yanlışlıkla ikinci bir Zed.app kuramaz).
+Agent tasks are available from the task picker (cmd-shift-p, then "task: spawn") and on shortcuts:
 
-Temiz yeniden kurulum gerekirse:
+| Shortcut | Task |
+|---|---|
+| cmd-alt-g | Grok: work on this repo (interactive TUI in the terminal pane) |
+| cmd-alt-r | Grok: review current file |
+| cmd-alt-c | Claude: continue last session |
+
+The agent panel is docked on the right. The inline assistant lives on ctrl-enter and uses the configured model. Multiple agent threads can run side by side; the dashboard task shows parallel Grok agents live.
+
+## Updates
+
+Xyra updates itself in place; it is intentionally detached from Homebrew (the installer removes the brew registration so `brew upgrade` can never create a second Zed.app next to Xyra).
+
+For a clean reinstall:
 
 ```bash
 ./update.sh
 ```
 
-## İsteğe bağlı: yerel modeller
+## Optional: local models
 
-Makinede Ollama varsa `~/.config/zed/settings.json` içine şu blok eklenerek yerel modeller inline asistan ve commit mesajı üretiminde kullanılabilir:
+If Ollama is present, add this block to `~/.config/zed/settings.json` to use local models for the inline assistant and commit messages:
 
 ```json
 {
@@ -68,7 +81,7 @@ Makinede Ollama varsa `~/.config/zed/settings.json` içine şu blok eklenerek ye
       "available_models": [
         {
           "name": "qwen2.5-coder:32b",
-          "display_name": "Qwen2.5 Coder 32B (lokal)",
+          "display_name": "Qwen2.5 Coder 32B (local)",
           "max_tokens": 32768,
           "supports_tools": true
         }
@@ -78,13 +91,13 @@ Makinede Ollama varsa `~/.config/zed/settings.json` içine şu blok eklenerek ye
 }
 ```
 
-## Sorun giderme
+## Troubleshooting
 
-- **Simge veya yeniden adlandırma engellendi**: Sistem Ayarları > Gizlilik ve Güvenlik > Uygulama Yönetimi altında Terminal'e izin verin, scripti tekrar çalıştırın. Simge için manuel yol: uygulamayı Finder'da seçip cmd+I, sol üstteki küçük simgeye tıklayın, `assets/xyra-icon.png` dosyasını Önizleme'de açıp cmd+A cmd+C ile kopyalayın ve Get Info penceresinde cmd+V ile yapıştırın.
-- **Menü çubuğunda "Zed" yazması**: normaldir. Uygulama imzasını bozmamak için bundle içine dokunulmaz; yalnızca ad, simge ve yapılandırma değiştirilir.
-- **Grok modeli görünmüyor**: `grok models` çalıştırın; aboneliğinizin aktif olduğunu doğrulayın.
-- **Font görünmüyor**: `brew install --cask font-jetbrains-mono-nerd-font` sonrası Xyra'yı yeniden başlatın.
+- **Rename or icon blocked**: grant Terminal the App Management permission under System Settings > Privacy & Security > App Management, then rerun the script. Manual icon path: select the app in Finder, press cmd+I, click the small icon in the top left, open `assets/xyra-icon.png` in Preview, copy it with cmd+A cmd+C, then paste with cmd+V into the Get Info window.
+- **Menu bar still says "Zed"**: expected. The bundle is left untouched to keep the code signature and self-updater intact; only the name, icon and configuration are changed.
+- **Grok models missing**: run `grok models` and confirm your subscription is active.
+- **Font not applied**: run `brew install --cask font-jetbrains-mono-nerd-font` and restart Xyra.
 
-## Lisans ve dağıtım notu
+## License and distribution note
 
-Bu repo Zed veya Grok Build binary'si içermez ve dağıtmaz; kurulum resmi kaynaklardan yapılır. Zed, [zed-industries/zed](https://github.com/zed-industries/zed) deposunda GPLv3 ile lisanslanmış açık kaynak bir projedir; Xyra bu projenin markasız yerel bir kurulumudur ve Zed Industries ile bir bağlantısı yoktur. Grok Build, xAI'nin resmi dağıtımıdır ve kullanımı xAI'nin koşullarına tabidir. Bu repodaki script ve yapılandırma dosyaları MIT lisanslıdır.
+This repository contains no Zed or Grok Build binaries and distributes none; installation happens from official sources. Zed is an open source project licensed under GPLv3 at [zed-industries/zed](https://github.com/zed-industries/zed); Xyra is a locally rebranded installation of it and is not affiliated with Zed Industries. Grok Build is distributed by xAI and subject to xAI's terms. The scripts and configuration files in this repository are MIT licensed.

@@ -1,0 +1,9 @@
+[
+  {
+    "bindings": {
+      "cmd-alt-g": ["task::Spawn", { "task_name": "Grok: work on this repo" }],
+      "cmd-alt-r": ["task::Spawn", { "task_name": "Grok: review current file" }],
+      "cmd-alt-c": ["task::Spawn", { "task_name": "Claude: continue last session" }]
+    }
+  }
+]
