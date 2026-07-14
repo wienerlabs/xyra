@@ -35,7 +35,20 @@ cd xyra
 ./install.sh
 ```
 
-macOS may ask for the "App Management" permission for Terminal on first run; grant it and run the script again.
+By default this **downloads the pre-built Xyra from the latest GitHub Release** (no compilation) and applies the Wiener configuration. It needs the GitHub CLI signed in (`gh auth login`); the installer installs `gh` if missing. To build from source instead (no Xcode required, ~45-60 minutes), run `./install.sh --source`. If no release exists yet, the installer falls back to a source build automatically.
+
+## Publishing a release
+
+Maintainers publish a versioned build to the repo's Releases so employees install without compiling:
+
+```bash
+./build/build-xyra.sh          # build and verify locally (or use an existing /Applications/Xyra.app)
+./build/publish-release.sh v0.1.0
+```
+
+`publish-release.sh` refuses to publish an app that does not contain the Xyra brand, zips `Xyra.app`, attaches a SHA-256, and creates the GitHub Release with source-availability notes. `install.sh` then downloads it.
+
+A `.github/workflows/release.yml` workflow can build and publish automatically on a `v*` tag push, running on a macOS runner. It is optional: macOS Actions minutes are billed at a high multiplier, so if Actions billing is unavailable, use the local `publish-release.sh` path above.
 
 ## First launch
 
