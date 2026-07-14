@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export HOMEBREW_NO_AUTO_UPDATE=1
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ZED_APP="/Applications/Zed.app"

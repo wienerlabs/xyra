@@ -4,13 +4,35 @@
     "dark": "Xyra Dark",
     "light": "Xyra Light"
   },
-  "base_keymap": "VSCode",
+  "base_keymap": "Cursor",
   "buffer_font_family": "JetBrainsMono Nerd Font",
   "ui_font_family": "JetBrainsMono Nerd Font",
   "cursor_shape": "block",
   "cursor_blink": false,
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/node_modules",
+    "**/.next",
+    "**/dist",
+    "**/build",
+    "**/target",
+    "**/.turbo",
+    "**/.venv",
+    "**/__pycache__",
+    "**/.pnpm-store"
+  ],
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false
+  },
+  "git": {
+    "inline_blame": {
+      "enabled": false
+    }
+  },
   "terminal": {
-    "font_family": "JetBrainsMono Nerd Font"
+    "font_family": "JetBrainsMono Nerd Font",
+    "blinking": "off"
   },
   "features": {
     "edit_prediction_provider": "zed"
