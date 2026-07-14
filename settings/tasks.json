@@ -23,6 +23,28 @@
     "use_new_terminal": true
   },
   {
+    "label": "Xyra: test and fix with Grok",
+    "command": "xyra-fix",
+    "args": ["test"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Xyra: build and fix with Grok",
+    "command": "xyra-fix",
+    "args": ["build"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Xyra: doctor",
+    "command": "xyra-doctor",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
     "label": "Claude: work on this repo",
     "command": "claude",
     "cwd": "$ZED_WORKTREE_ROOT",

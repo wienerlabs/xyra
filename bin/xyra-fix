@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+MODE="${1:-test}"
+LOG="$(mktemp -t xyra-fix.XXXXXX).log"
+
+detect_command() {
+  case "$MODE" in
+    test)
+      if [ -f pnpm-lock.yaml ]; then echo "pnpm test"
+      elif [ -f bun.lock ] || [ -f bun.lockb ]; then echo "bun test"
+      elif [ -f package-lock.json ] || [ -f package.json ]; then echo "npm test"
+      elif [ -f Cargo.toml ]; then echo "cargo test"
+      elif [ -f pyproject.toml ] || [ -f pytest.ini ]; then echo "python3 -m pytest"
+      elif [ -f go.mod ]; then echo "go test ./..."
+      else echo ""
+      fi
+      ;;
+    build)
+      if [ -f pnpm-lock.yaml ]; then echo "pnpm build"
+      elif [ -f bun.lock ] || [ -f bun.lockb ]; then echo "bun run build"
+      elif [ -f package-lock.json ] || [ -f package.json ]; then echo "npm run build"
+      elif [ -f Cargo.toml ]; then echo "cargo build"
+      elif [ -f go.mod ]; then echo "go build ./..."
+      else echo ""
+      fi
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
+CMD="$(detect_command)"
+if [ -z "$CMD" ]; then
+  echo "xyra-fix: no $MODE command detected in $(pwd)" >&2
+  exit 1
+fi
+
+echo "xyra-fix: running: $CMD"
+if bash -c "$CMD" 2>&1 | tee "$LOG"; then
+  echo ""
+  echo "xyra-fix: $MODE passed, nothing to fix"
+  rm -f "$LOG"
+  exit 0
+fi
+
+echo ""
+echo "xyra-fix: $MODE failed, handing over to Grok"
+exec grok "The command '$CMD' just failed in this repository. The full output is in the file $LOG, read it first. Find the root cause and fix it with minimal, scoped changes following the wiener-conventions skill. Then rerun '$CMD' yourself to verify the fix."

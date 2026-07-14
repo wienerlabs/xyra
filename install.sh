@@ -71,6 +71,8 @@ if [ -d "$XYRA_APP" ]; then
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/zed"
   echo "  xyra komutu hazır: $BREW_BIN/xyra"
 fi
+install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$BREW_BIN/"
+echo "  xyra-fix ve xyra-doctor kuruldu"
 
 echo "[6/6] Kurulum tamamlandı"
 echo ""

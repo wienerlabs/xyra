@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+PASS=0
+WARN=0
+FAIL=0
+
+ok()   { printf "  ok    %s\n" "$1"; PASS=$((PASS+1)); }
+warn() { printf "  warn  %s\n" "$1"; WARN=$((WARN+1)); }
+bad()  { printf "  fail  %s\n" "$1"; FAIL=$((FAIL+1)); }
+
+echo "Xyra doctor"
+echo ""
+
+if command -v brew >/dev/null 2>&1; then ok "Homebrew present"; else bad "Homebrew missing (https://brew.sh)"; fi
+
+if [ -d /Applications/Xyra.app ]; then
+  ok "Xyra.app installed"
+elif [ -d /Applications/Zed.app ]; then
+  warn "Zed.app present but not renamed to Xyra.app (rerun install.sh)"
+else
+  bad "no Xyra.app or Zed.app in /Applications"
+fi
+
+if brew list --cask zed >/dev/null 2>&1; then
+  warn "brew still tracks the zed cask, a future brew upgrade could create a duplicate Zed.app (rerun install.sh)"
+else
+  ok "brew zed registration removed, duplicate guard active"
+fi
+
+if command -v grok >/dev/null 2>&1; then
+  ok "grok CLI present ($(grok --version 2>/dev/null | head -1))"
+  GROK_MODELS_OUTPUT="$(grok models 2>&1 || true)"
+  if printf "%s" "$GROK_MODELS_OUTPUT" | grep -qi "logged in"; then
+    ok "grok signed in ($(printf "%s" "$GROK_MODELS_OUTPUT" | grep -i "logged in" | head -1))"
+  else
+    bad "grok not signed in, run: grok login --oauth"
+  fi
+else
+  bad "grok CLI missing, run: brew install --cask grok-build"
+fi
+
+if command -v claude >/dev/null 2>&1; then ok "claude CLI present"; else warn "claude CLI missing (optional)"; fi
+
+ZED_CONFIG_DIR="$HOME/.config/zed"
+
+if python3 -m json.tool "$ZED_CONFIG_DIR/settings.json" >/dev/null 2>&1; then
+  ok "settings.json valid"
+else
+  bad "settings.json missing or invalid"
+fi
+
+if [ -f "$ZED_CONFIG_DIR/themes/xyra.json" ]; then
+  if python3 - "$ZED_CONFIG_DIR" <<'PYEOF' >/dev/null 2>&1
+import json, sys
+base = sys.argv[1]
+theme = json.load(open(base + "/themes/xyra.json"))
+names = {t["name"] for t in theme["themes"]}
+settings = json.load(open(base + "/settings.json"))
+assert settings["theme"]["dark"] in names
+assert settings["theme"]["light"] in names
+PYEOF
+  then
+    ok "Xyra theme installed and referenced"
+  else
+    warn "Xyra theme present but settings do not reference it"
+  fi
+else
+  bad "Xyra theme missing (rerun install.sh)"
+fi
+
+for f in tasks.json keymap.json; do
+  if [ -f "$ZED_CONFIG_DIR/$f" ]; then ok "$f present"; else warn "$f missing (rerun install.sh)"; fi
+done
+
+if ls "$ZED_CONFIG_DIR/snippets/"*.json >/dev/null 2>&1; then ok "snippets present"; else warn "snippets missing (rerun install.sh)"; fi
+
+if [ -f "$HOME/.grok/skills/wiener-conventions/SKILL.md" ]; then
+  ok "wiener-conventions skill installed"
+else
+  warn "wiener-conventions skill missing (rerun install.sh)"
+fi
+
+if ls "$HOME/Library/Fonts"/JetBrainsMonoNerdFont* >/dev/null 2>&1 || ls /Library/Fonts/JetBrainsMonoNerdFont* >/dev/null 2>&1; then
+  ok "JetBrains Mono Nerd Font installed"
+else
+  warn "JetBrains Mono Nerd Font missing, run: brew install --cask font-jetbrains-mono-nerd-font"
+fi
+
+if command -v ollama >/dev/null 2>&1; then
+  if curl -s --max-time 2 http://localhost:11434/api/version >/dev/null 2>&1; then
+    ok "ollama running (optional local models available)"
+  else
+    warn "ollama installed but not running (optional)"
+  fi
+else
+  warn "ollama missing (optional, local models disabled)"
+fi
+
+echo ""
+echo "result: $PASS ok, $WARN warn, $FAIL fail"
+[ "$FAIL" -eq 0 ]

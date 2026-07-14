@@ -53,9 +53,15 @@ Agent tasks are available from the task picker (cmd-shift-p, then "task: spawn")
 |---|---|
 | cmd-alt-g | Grok: work on this repo (interactive TUI in the terminal pane) |
 | cmd-alt-r | Grok: review current file |
+| cmd-alt-t | Xyra: test and fix with Grok |
 | cmd-alt-c | Claude: continue last session |
 
 The agent panel is docked on the right. The inline assistant lives on ctrl-enter and uses the configured model. Multiple agent threads can run side by side; the dashboard task shows parallel Grok agents live.
+
+Two commands work in any repository, inside or outside the editor:
+
+- `xyra-fix test` and `xyra-fix build` detect the project's runner (pnpm, bun, npm, cargo, pytest, go), run it, and on failure open Grok with the failure log and a fix mandate. On success they exit quietly.
+- `xyra-doctor` verifies the whole setup: app, brew duplicate guard, Grok sign-in, theme, tasks, snippets, conventions skill, font and optional Ollama. Run it after install or whenever something feels off.
 
 ## Updates
 
