@@ -48,7 +48,19 @@
     "Grok Build": {
       "type": "custom",
       "command": "/opt/homebrew/bin/grok",
-      "args": ["agent", "stdio"],
+      "args": [
+        "agent",
+        "stdio"
+      ],
+      "env": {}
+    },
+    "Claude Code": {
+      "type": "custom",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@zed-industries/claude-code-acp"
+      ],
       "env": {}
     }
   }
