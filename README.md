@@ -92,7 +92,7 @@ The stock install renames the app and sets the icon, but compiled strings like t
 ./build/build-xyra.sh
 ```
 
-Requirements: Xcode (for the Metal compiler) and Rust. The script pins the upstream tag, applies `build/patch-brand.sh` (menu bar and About name, welcome screen text, app icon baked into the bundle, Xyra theme embedded as a built-in), builds with the official bundle script and installs to /Applications/Xyra.app. Expect 30-60 minutes on first build. Updates: bump the tag in the script and rerun.
+Requirements: Command Line Tools (`xcode-select --install`) and Rust. No full Xcode needed: the patch enables gpui's `runtime_shaders` feature, which compiles Metal shaders at app startup instead of at build time. The script pins the upstream tag, applies `build/patch-brand.sh` (menu bar and About name, welcome screen text and logo, app icon baked into the bundle, Xyra theme embedded as a built-in), builds with the official bundle script and installs to /Applications/Xyra.app. Expect 30-60 minutes on first build. Updates: bump the tag in the script and rerun.
 
 ## Optional: local models
 
