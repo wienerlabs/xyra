@@ -47,7 +47,42 @@
     "play_sound_when_agent_done": "when_hidden",
     "notify_when_agent_waiting": "primary_screen",
     "expand_edit_card": true,
-    "expand_terminal_card": true
+    "expand_terminal_card": true,
+    "profiles": {
+      "explore": {
+        "name": "Explore",
+        "tools": {
+          "read_file": true,
+          "grep": true,
+          "find_path": true,
+          "list_directory": true,
+          "find_references": true,
+          "go_to_definition": true,
+          "get_code_actions": true,
+          "diagnostics": true,
+          "fetch": true,
+          "web_search": true,
+          "skill": true,
+          "list_agents_and_models": true
+        },
+        "enable_all_context_servers": true
+      },
+      "review": {
+        "name": "Review",
+        "tools": {
+          "read_file": true,
+          "grep": true,
+          "find_path": true,
+          "list_directory": true,
+          "find_references": true,
+          "go_to_definition": true,
+          "get_code_actions": true,
+          "diagnostics": true,
+          "skill": true
+        },
+        "enable_all_context_servers": false
+      }
+    }
   },
   "agent_servers": {
     "Grok Build": {
