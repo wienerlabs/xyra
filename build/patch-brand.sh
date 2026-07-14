@@ -23,4 +23,8 @@ done
 mkdir -p "$SRC/assets/themes/xyra"
 cp "$REPO_DIR/settings/themes/xyra.json" "$SRC/assets/themes/xyra/xyra.json"
 
-echo "marka yaması uygulandı: release channel, welcome ekranı, bundle adı, simgeler, gömülü Xyra teması"
+if [ -f "$SRC/assets/images/zed_logo.svg" ]; then
+  cp "$REPO_DIR/assets/xyra-logo.svg" "$SRC/assets/images/zed_logo.svg"
+fi
+
+echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması"
