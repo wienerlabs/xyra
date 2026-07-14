@@ -38,8 +38,11 @@ mkdir -p "$ZED_CONFIG_DIR/themes" "$ZED_CONFIG_DIR/snippets"
 cp "$REPO_DIR/settings/themes/xyra.json" "$ZED_CONFIG_DIR/themes/xyra.json"
 cp "$REPO_DIR/settings/snippets/"*.json "$ZED_CONFIG_DIR/snippets/"
 cp "$REPO_DIR/assets/xyra-icon.png" "$ZED_CONFIG_DIR/xyra-icon.png"
-mkdir -p "$HOME/.grok/skills/wiener-conventions"
-cp "$REPO_DIR/grok/skills/wiener-conventions/SKILL.md" "$HOME/.grok/skills/wiener-conventions/SKILL.md"
+for SKILL_DIR in "$REPO_DIR/grok/skills/"*/; do
+  SKILL_NAME="$(basename "$SKILL_DIR")"
+  mkdir -p "$HOME/.grok/skills/$SKILL_NAME"
+  cp "$SKILL_DIR/SKILL.md" "$HOME/.grok/skills/$SKILL_NAME/SKILL.md"
+done
 
 echo "[3/6] Uygulama Xyra olarak adlandırılıyor"
 if [ -d "$ZED_APP" ] && [ ! -d "$XYRA_APP" ]; then

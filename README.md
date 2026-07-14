@@ -73,6 +73,27 @@ For a clean reinstall:
 ./update.sh
 ```
 
+## Skills
+
+Grok sessions load the Wiener skills from `grok/skills/`, installed to `~/.grok/skills/`:
+
+- **wiener-conventions**: house rules for code, commits and UI copy, applied whenever code is written
+- **wiener-review**: review checklist covering integer money math, Supabase RPC grants, the Next.js server-to-client prop boundary and convention violations
+- **wiener-solana**: guardrails for anything touching funds: canonical addresses only (address poisoning defense), integer base units, simulation before send, devnet by default
+- **wiener-ship**: pre-push checklist: green tests and build, secrets scan, commit format, solo push-to-main flow
+
+Grok also reads Claude skills from `~/.claude/skills` automatically, so both agents share one skill investment.
+
+## Branded build: every pixel Xyra
+
+The stock install renames the app and sets the icon, but compiled strings like the welcome screen still say Zed. For the full rebrand, build Xyra from the GPL source with the Wiener brand patch:
+
+```bash
+./build/build-xyra.sh
+```
+
+Requirements: Xcode (for the Metal compiler) and Rust. The script pins the upstream tag, applies `build/patch-brand.sh` (menu bar and About name, welcome screen text, app icon baked into the bundle, Xyra theme embedded as a built-in), builds with the official bundle script and installs to /Applications/Xyra.app. Expect 30-60 minutes on first build. Updates: bump the tag in the script and rerun.
+
 ## Optional: local models
 
 If Ollama is present, add this block to `~/.config/zed/settings.json` to use local models for the inline assistant and commit messages:
