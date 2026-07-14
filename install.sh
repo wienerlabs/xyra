@@ -27,6 +27,8 @@ if [ -f "$ZED_CONFIG_DIR/settings.json" ]; then
   echo "  mevcut settings.json yedeklendi: $BACKUP"
 fi
 cp "$REPO_DIR/settings/settings.json" "$ZED_CONFIG_DIR/settings.json"
+mkdir -p "$ZED_CONFIG_DIR/themes"
+cp "$REPO_DIR/settings/themes/xyra.json" "$ZED_CONFIG_DIR/themes/xyra.json"
 cp "$REPO_DIR/assets/xyra-icon.png" "$ZED_CONFIG_DIR/xyra-icon.png"
 
 echo "[3/6] Uygulama Xyra olarak adlandırılıyor"

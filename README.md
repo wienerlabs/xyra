@@ -11,8 +11,9 @@
 `install.sh` hiçbir binary dağıtmaz; her şeyi resmi kaynaklardan kurar ve üzerine Wiener yapılandırmasını giydirir:
 
 - Zed editörü (resmi Homebrew cask), Xyra adı ve simgesiyle
+- Xyra teması: logodan türetilmiş lime ve yeşil-kara palet, koyu ve açık varyant, sistem temasını izler
 - Grok Build CLI (xAI resmi cask) ve Zed agent paneline ACP entegrasyonu
-- JetBrains Mono Nerd Font, VSCode tuş düzeni, Zeta tab tamamlama ayarı
+- JetBrains Mono Nerd Font (editör, arayüz ve terminal), VSCode tuş düzeni, blok imleç, Zeta tab tamamlama ayarı
 - `xyra` terminal komutu
 
 Kurulum sonrası tek panelde üç katman kullanılır: Grok Build (abonelik kotası, 8 paralel agent), Claude Code (yerleşik) ve istenirse yerel Ollama modelleri.

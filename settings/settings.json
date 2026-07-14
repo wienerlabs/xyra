@@ -1,6 +1,17 @@
 {
+  "theme": {
+    "mode": "system",
+    "dark": "Xyra Dark",
+    "light": "Xyra Light"
+  },
   "base_keymap": "VSCode",
   "buffer_font_family": "JetBrainsMono Nerd Font",
+  "ui_font_family": "JetBrainsMono Nerd Font",
+  "cursor_shape": "block",
+  "cursor_blink": false,
+  "terminal": {
+    "font_family": "JetBrainsMono Nerd Font"
+  },
   "features": {
     "edit_prediction_provider": "zed"
   },
