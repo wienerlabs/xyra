@@ -42,7 +42,12 @@
   },
   "agent": {
     "dock": "right",
-    "default_width": 480
+    "default_width": 480,
+    "button": true,
+    "play_sound_when_agent_done": "when_hidden",
+    "notify_when_agent_waiting": "primary_screen",
+    "expand_edit_card": true,
+    "expand_terminal_card": true
   },
   "agent_servers": {
     "Grok Build": {

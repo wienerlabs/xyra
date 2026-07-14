@@ -37,4 +37,9 @@ fi
 
 python3 "$REPO_DIR/build/rebrand-strings.py" "$SRC" --apply | tail -1
 
-echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması, tüm UI stringleri"
+for MD in "$SRC/crates/agent_skills/builtin/"*/SKILL.md; do
+  [ -f "$MD" ] || continue
+  sed -i '' -E 's/[[:<:]]Zed[[:>:]]/Xyra/g' "$MD"
+done
+
+echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması, tüm UI stringleri, gömülü skill'ler"
