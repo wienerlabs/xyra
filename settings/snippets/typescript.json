@@ -1,0 +1,41 @@
+{
+  "Zod schema with inferred type": {
+    "prefix": "zs",
+    "body": [
+      "export const ${1:Name}Schema = z.object({",
+      "\t$0",
+      "});",
+      "",
+      "export type ${1:Name} = z.infer<typeof ${1:Name}Schema>;"
+    ],
+    "description": "Zod schema plus inferred type export"
+  },
+  "Next.js server action": {
+    "prefix": "nsa",
+    "body": [
+      "\"use server\";",
+      "",
+      "export async function ${1:actionName}(${2:input}: ${3:InputType}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Next.js server action"
+  },
+  "Next.js route handler": {
+    "prefix": "nra",
+    "body": [
+      "export async function ${1|GET,POST,PUT,PATCH,DELETE|}(request: Request) {",
+      "\t$0",
+      "\treturn Response.json({ ok: true });",
+      "}"
+    ],
+    "description": "Next.js App Router route handler"
+  },
+  "Solana connection": {
+    "prefix": "solc",
+    "body": [
+      "const connection = new Connection(process.env.${1:RPC_URL} ?? clusterApiUrl(\"${2|mainnet-beta,devnet|}\"), \"confirmed\");"
+    ],
+    "description": "Solana web3.js connection"
+  }
+}

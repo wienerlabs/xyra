@@ -1,0 +1,34 @@
+{
+  "Anchor instruction handler": {
+    "prefix": "anix",
+    "body": [
+      "pub fn ${1:handler}(ctx: Context<${2:Accounts}>) -> Result<()> {",
+      "\t$0",
+      "\tOk(())",
+      "}"
+    ],
+    "description": "Anchor instruction handler"
+  },
+  "Anchor accounts struct": {
+    "prefix": "anacc",
+    "body": [
+      "#[derive(Accounts)]",
+      "pub struct ${1:Name}<'info> {",
+      "\t#[account(mut)]",
+      "\tpub ${2:payer}: Signer<'info>,",
+      "\t$0",
+      "\tpub system_program: Program<'info, System>,",
+      "}"
+    ],
+    "description": "Anchor accounts struct"
+  },
+  "Result function": {
+    "prefix": "rfn",
+    "body": [
+      "pub fn ${1:name}(${2}) -> Result<${3:()}> {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Function returning anyhow or anchor Result"
+  }
+}

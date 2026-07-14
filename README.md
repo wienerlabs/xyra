@@ -13,7 +13,9 @@
 - Zed editor (official Homebrew cask), renamed and branded as Xyra
 - Xyra theme: lime and near-black palette derived from the logo, dark and light variants, follows the system appearance
 - Grok Build CLI (official xAI cask) wired into the agent panel over ACP
+- The wiener-conventions skill for Grok: house rules for code, commits and UI copy applied in every agent session
 - Editor tasks and keyboard shortcuts for driving agents without leaving the editor
+- Snippets for the house stack: Zod, Next.js server actions and route handlers, client components with context i18n, Anchor instructions
 - JetBrains Mono Nerd Font (editor, UI and terminal), VSCode keymap, block cursor, Zeta edit predictions
 - The `xyra` terminal command
 

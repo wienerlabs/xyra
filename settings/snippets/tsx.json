@@ -1,0 +1,48 @@
+{
+  "Next.js server component page": {
+    "prefix": "npage",
+    "body": [
+      "export default async function ${1:Page}() {",
+      "\treturn (",
+      "\t\t<main>",
+      "\t\t\t$0",
+      "\t\t</main>",
+      "\t);",
+      "}"
+    ],
+    "description": "Async server component page"
+  },
+  "Client component with useT": {
+    "prefix": "nclient",
+    "body": [
+      "\"use client\";",
+      "",
+      "import { useT } from \"${1:@/lib/i18n/client}\";",
+      "",
+      "export function ${2:Component}() {",
+      "\tconst t = useT();",
+      "\treturn (",
+      "\t\t<div>",
+      "\t\t\t{t(\"$3\")}$0",
+      "\t\t</div>",
+      "\t);",
+      "}"
+    ],
+    "description": "Client component reading i18n from context, never from server props"
+  },
+  "Client component": {
+    "prefix": "ncc",
+    "body": [
+      "\"use client\";",
+      "",
+      "export function ${1:Component}(${2:props}: ${3:Props}) {",
+      "\treturn (",
+      "\t\t<div>",
+      "\t\t\t$0",
+      "\t\t</div>",
+      "\t);",
+      "}"
+    ],
+    "description": "Client component"
+  }
+}

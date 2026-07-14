@@ -33,9 +33,12 @@ for EXTRA in tasks.json keymap.json; do
   fi
   cp "$REPO_DIR/settings/$EXTRA" "$ZED_CONFIG_DIR/$EXTRA"
 done
-mkdir -p "$ZED_CONFIG_DIR/themes"
+mkdir -p "$ZED_CONFIG_DIR/themes" "$ZED_CONFIG_DIR/snippets"
 cp "$REPO_DIR/settings/themes/xyra.json" "$ZED_CONFIG_DIR/themes/xyra.json"
+cp "$REPO_DIR/settings/snippets/"*.json "$ZED_CONFIG_DIR/snippets/"
 cp "$REPO_DIR/assets/xyra-icon.png" "$ZED_CONFIG_DIR/xyra-icon.png"
+mkdir -p "$HOME/.grok/skills/wiener-conventions"
+cp "$REPO_DIR/grok/skills/wiener-conventions/SKILL.md" "$HOME/.grok/skills/wiener-conventions/SKILL.md"
 
 echo "[3/6] Uygulama Xyra olarak adlandırılıyor"
 if [ -d "$ZED_APP" ] && [ ! -d "$XYRA_APP" ]; then
