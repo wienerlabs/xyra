@@ -19,6 +19,7 @@ EXCLUDE_FILE_SUFFIXES = ("_test.rs", "_tests.rs")
 EXCLUDE_FILE_PARTS = (
     "gpui/src/text_system.rs",
     "settings/src/settings_store.rs",
+    "paths/src/paths.rs",
 )
 
 CONTENT_KEEP = ("-Editor-", "Plex", "Zed Mono", "Zed Icons", "Zed Sans")
