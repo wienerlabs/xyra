@@ -1,0 +1,18 @@
+{
+  "base_keymap": "VSCode",
+  "buffer_font_family": "JetBrainsMono Nerd Font",
+  "features": {
+    "edit_prediction_provider": "zed"
+  },
+  "edit_predictions": {
+    "mode": "eager"
+  },
+  "agent_servers": {
+    "Grok Build": {
+      "type": "custom",
+      "command": "/opt/homebrew/bin/grok",
+      "args": ["agent", "stdio"],
+      "env": {}
+    }
+  }
+}
