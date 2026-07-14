@@ -16,6 +16,10 @@ if grep -q '^default = \["gpui/default"\]$' "$SRC/crates/gpui_macos/Cargo.toml";
   sed -i '' 's|^default = \["gpui/default"\]$|default = ["gpui/default", "runtime_shaders"]|' "$SRC/crates/gpui_macos/Cargo.toml"
 fi
 
+if grep -q '^gpui_macos = { path = "crates/gpui_macos", default-features = false }$' "$SRC/Cargo.toml"; then
+  sed -i '' 's|^gpui_macos = { path = "crates/gpui_macos", default-features = false }$|gpui_macos = { path = "crates/gpui_macos", default-features = false, features = ["runtime_shaders"] }|' "$SRC/Cargo.toml"
+fi
+
 for ICON in app-icon.png app-icon@2x.png; do
   TARGET="$SRC/crates/zed/resources/$ICON"
   if [ -f "$TARGET" ]; then
