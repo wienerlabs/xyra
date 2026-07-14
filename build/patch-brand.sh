@@ -12,6 +12,10 @@ if grep -q '^name = "Zed"$' "$SRC/crates/zed/Cargo.toml"; then
   sed -i '' 's/^name = "Zed"$/name = "Xyra"/' "$SRC/crates/zed/Cargo.toml"
 fi
 
+if grep -q '^default = \["gpui/default"\]$' "$SRC/crates/gpui_macos/Cargo.toml"; then
+  sed -i '' 's|^default = \["gpui/default"\]$|default = ["gpui/default", "runtime_shaders"]|' "$SRC/crates/gpui_macos/Cargo.toml"
+fi
+
 for ICON in app-icon.png app-icon@2x.png; do
   TARGET="$SRC/crates/zed/resources/$ICON"
   if [ -f "$TARGET" ]; then

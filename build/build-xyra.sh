@@ -7,10 +7,8 @@ TAG="v1.10.3"
 XYRA_APP="/Applications/Xyra.app"
 BREW_BIN="$(dirname "$(command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)")"
 
-if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
-  echo "Hata: Metal derleyicisi yok. App Store'dan Xcode kurun, sonra:" >&2
-  echo "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
-  echo "  sudo xcodebuild -runFirstLaunch" >&2
+if ! xcode-select -p >/dev/null 2>&1; then
+  echo "Hata: Command Line Tools gerekli: xcode-select --install" >&2
   exit 1
 fi
 
