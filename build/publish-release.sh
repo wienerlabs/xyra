@@ -28,35 +28,31 @@ rm -rf "$STAGE/Xyra.app"
 shasum -a 256 "$ASSET" | awk '{print $1}' > "$ASSET.sha256"
 SIZE="$(du -h "$ASSET" | awk '{print $1}')"
 
-NOTES="$(cat <<EOF
-Xyra $VERSION (Zed $ZED_BASE tabanlı, macOS $ARCH)
+NOTES_FILE="$STAGE/notes.md"
+cat > "$NOTES_FILE" <<'EOF'
+Xyra @VERSION@ (Zed @ZED_BASE@ tabanli, macOS @ARCH@)
 
-Wiener Labs dahili editörü. Grok Build ve Claude Code agent panelinde, Xyra teması ve markası gömülü.
+Wiener Labs dahili editoru. Grok Build ve Claude Code agent panelinde, Xyra temasi ve markasi gomulu.
 
 ## Kurulum
-\`\`\`bash
-git clone https://github.com/$REPO.git && cd xyra && ./install.sh
-\`\`\`
-install.sh bu release'i indirir (derleme gerektirmez) ve Wiener yapılandırmasını uygular.
-
-## Doğrulama
-\`\`\`
-shasum -a 256 -c <(echo "\$(cat Xyra-$VERSION-macos-$ARCH.zip.sha256)  Xyra-$VERSION-macos-$ARCH.zip")
-\`\`\`
+```bash
+git clone https://github.com/@REPO@.git && cd xyra && ./install.sh
+```
+install.sh bu release'i indirir (derleme gerektirmez) ve Wiener yapilandirmasini uygular.
 
 ## Kaynak (GPL)
-Bu binary, GPLv3 lisanslı [zed-industries/zed](https://github.com/zed-industries/zed) \`v$ZED_BASE\` etiketinden, bu repodaki \`build/patch-brand.sh\` ve \`build/rebrand-strings.py\` yamalarıyla derlenmiştir. Karşılık gelen kaynağı \`./build/build-xyra.sh\` ile birebir yeniden üretebilirsiniz.
+Bu binary, GPLv3 lisansli zed-industries/zed `v@ZED_BASE@` etiketinden, bu repodaki `build/patch-brand.sh` ve `build/rebrand-strings.py` yamalariyla derlenmistir. Karsilik gelen kaynagi `./build/build-xyra.sh` ile birebir yeniden uretebilirsiniz.
 EOF
-)"
+sed -i '' -e "s|@VERSION@|$VERSION|g" -e "s|@ARCH@|$ARCH|g" -e "s|@ZED_BASE@|$ZED_BASE|g" -e "s|@REPO@|$REPO|g" "$NOTES_FILE"
 
-echo "GitHub Release oluşturuluyor: $VERSION ($SIZE)"
+echo "GitHub Release olusturuluyor: $VERSION ($SIZE)"
 if gh release view "$VERSION" --repo "$REPO" >/dev/null 2>&1; then
   gh release upload "$VERSION" "$ASSET" "$ASSET.sha256" --repo "$REPO" --clobber
-  echo "Mevcut release güncellendi: $VERSION"
+  echo "Mevcut release guncellendi: $VERSION"
 else
   gh release create "$VERSION" "$ASSET" "$ASSET.sha256" \
-    --repo "$REPO" --title "Xyra $VERSION" --notes "$NOTES"
-  echo "Release yayınlandı: https://github.com/$REPO/releases/tag/$VERSION"
+    --repo "$REPO" --title "Xyra $VERSION" --notes-file "$NOTES_FILE"
+  echo "Release yayinlandi: https://github.com/$REPO/releases/tag/$VERSION"
 fi
 
 rm -rf "$STAGE"
