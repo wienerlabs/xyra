@@ -65,7 +65,11 @@
           "skill": true,
           "list_agents_and_models": true
         },
-        "enable_all_context_servers": true
+        "enable_all_context_servers": true,
+        "default_model": {
+          "provider": "ollama",
+          "model": "hf.co/bartowski/mlabonne_gemma-3-27b-it-abliterated-GGUF:Q6_K"
+        }
       },
       "review": {
         "name": "Review",
@@ -80,8 +84,28 @@
           "diagnostics": true,
           "skill": true
         },
-        "enable_all_context_servers": false
+        "enable_all_context_servers": false,
+        "default_model": {
+          "provider": "ollama",
+          "model": "qwen2.5-coder:32b"
+        }
       }
+    },
+    "subagent_model": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:32b"
+    },
+    "thread_summary_model": {
+      "provider": "ollama",
+      "model": "hf.co/bartowski/mlabonne_gemma-3-27b-it-abliterated-GGUF:Q6_K"
+    },
+    "inline_assistant_model": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:32b"
+    },
+    "commit_message_model": {
+      "provider": "ollama",
+      "model": "qwen2.5-coder:32b"
     }
   },
   "agent_servers": {

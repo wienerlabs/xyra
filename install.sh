@@ -81,6 +81,10 @@ done
 cp "$REPO_DIR/settings/themes/xyra.json" "$ZED_CONFIG_DIR/themes/xyra.json"
 cp "$REPO_DIR/settings/snippets/"*.json "$ZED_CONFIG_DIR/snippets/"
 cp "$REPO_DIR/assets/xyra-icon.png" "$ZED_CONFIG_DIR/xyra-icon.png"
+if [ -f "$ZED_CONFIG_DIR/AGENTS.md" ]; then
+  cp "$ZED_CONFIG_DIR/AGENTS.md" "$ZED_CONFIG_DIR/AGENTS.md.bak.$(date +%Y%m%d%H%M%S)"
+fi
+cp "$REPO_DIR/settings/AGENTS.md" "$ZED_CONFIG_DIR/AGENTS.md"
 for SKILL_DIR in "$REPO_DIR/grok/skills/"*/; do
   SKILL_NAME="$(basename "$SKILL_DIR")"
   mkdir -p "$HOME/.grok/skills/$SKILL_NAME"
