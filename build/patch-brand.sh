@@ -35,4 +35,6 @@ if [ -f "$SRC/assets/images/zed_logo.svg" ]; then
   cp "$REPO_DIR/assets/xyra-logo.svg" "$SRC/assets/images/zed_logo.svg"
 fi
 
-echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması"
+python3 "$REPO_DIR/build/rebrand-strings.py" "$SRC" --apply | tail -1
+
+echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması, tüm UI stringleri"
