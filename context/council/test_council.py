@@ -97,6 +97,39 @@ class PanelTest(unittest.TestCase):
         self.assertEqual(Config(builder="grok", reviewers=["claude", "claude", "local"]).panel(), ["claude", "local"])
 
 
+class CosmosTest(unittest.TestCase):
+    def setUp(self):
+        from council import cosmos
+        self.cosmos = cosmos
+
+    def test_extract_array_fenced(self):
+        t = 'x ```json\n[{"id":"1","title":"a","depends_on":[]}]\n``` y'
+        arr = self.cosmos._extract_array(t)
+        self.assertEqual(len(arr), 1)
+        self.assertEqual(arr[0]["id"], "1")
+
+    def test_extract_array_bare(self):
+        arr = self.cosmos._extract_array('pre [{"id":"2","title":"b"}] post')
+        self.assertEqual(arr[0]["id"], "2")
+
+    def test_extract_array_none(self):
+        self.assertEqual(self.cosmos._extract_array("no array"), [])
+
+    def test_toposort_orders_deps(self):
+        tickets = [
+            {"id": "3", "depends_on": ["1", "2"]},
+            {"id": "1", "depends_on": []},
+            {"id": "2", "depends_on": ["1"]},
+        ]
+        order = [t["id"] for t in self.cosmos._toposort(tickets)]
+        self.assertLess(order.index("1"), order.index("2"))
+        self.assertLess(order.index("2"), order.index("3"))
+
+    def test_toposort_cycle_safe(self):
+        tickets = [{"id": "1", "depends_on": ["2"]}, {"id": "2", "depends_on": ["1"]}]
+        self.assertEqual(len(self.cosmos._toposort(tickets)), 2)
+
+
 class WatchTest(unittest.TestCase):
     def setUp(self):
         import tempfile

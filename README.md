@@ -149,7 +149,13 @@ xyra-cosmos "migrate the settlement flow to the new vault program"
 # -> docs/cosmos/<date>-<slug>.md  (design + rival challenge on the record)
 ```
 
-Once the design is approved, each ticket runs through `xyra-council` (implement + rival review). Design stays local and in-repo, never in a vendor's cloud.
+```bash
+xyra-cosmos "migrate the settlement flow to the new vault program"           # design only
+xyra-cosmos --reviewers claude,local "..."                                    # panel challenge
+xyra-cosmos --execute "..."                                                   # autonomous: run every ticket through the council
+```
+
+The design phase parses a dependency-ordered ticket list into the doc. With `--execute`, Cosmos topologically sorts the tickets and runs each one through `xyra-council` (implement plus rival review), stopping at the first blocked ticket unless you pass `--force`. Design and tickets stay local and in-repo, never in a vendor's cloud.
 
 ## Always-on council
 
