@@ -110,5 +110,5 @@ if [ "$EXECUTE" -eq 1 ]; then
   grep -nE "^[0-9]+\.|^- \[|^#### Ticket|^\*\*[0-9]" "$DOC" | head -20
   echo ""
   echo "Otomatik ticket ayrıştırma LLM biçimine göre kırılgan; şimdilik her ticket'ı elle çalıştır:"
-  echo "  xyra-council --by $BUILDER --review $REVIEWER --fix \"<ticket metni>\""
+  echo "  xyra-council --by $BUILDER --review $REVIEWER \"<ticket metni>\""
 fi

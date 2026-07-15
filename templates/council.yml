@@ -1,0 +1,29 @@
+name: council
+
+on:
+  pull_request:
+
+jobs:
+  review:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Xyra council
+        run: |
+          git clone https://github.com/wienerlabs/xyra.git /tmp/xyra
+          mkdir -p "$HOME/.xyra"
+          cp -R /tmp/xyra/context/council "$HOME/.xyra/council"
+          install -m 0755 /tmp/xyra/bin/xyra-council /usr/local/bin/xyra-council
+          install -m 0755 /tmp/xyra/context/xyra_context.py /usr/local/bin/xyra-context
+      - name: Council review of the PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+          git stash --include-untracked || true
+          git apply --whitespace=nowarn /tmp/pr.diff || true
+          xyra-council --review-only --sarif council.sarif --by grok --review claude
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: council.sarif

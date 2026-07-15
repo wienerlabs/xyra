@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+command -v xyra-council >/dev/null 2>&1 || exit 0
+if ! xyra-council --review-only --staged; then
+  echo ""
+  echo "Council blocked this commit. Fix the findings above or bypass once with: git commit --no-verify"
+  exit 1
+fi

@@ -1,0 +1,26 @@
+[council]
+builder = "grok"
+reviewer = "claude"
+lenses = ["correctness", "security", "conventions"]
+rounds = 2
+timeout = 900
+retries = 2
+
+[policy]
+block_on = ["critical", "high"]
+
+[[policy.rules]]
+paths = ["**/money*.ts", "**/*solana*.rs", "programs/**", "**/vault*.rs"]
+require = ["security"]
+block_on = ["critical", "high", "medium"]
+
+[[policy.rules]]
+paths = ["**/*.tsx", "**/*.jsx"]
+require = ["conventions", "performance"]
+
+[cache]
+enabled = true
+
+[redact]
+enabled = true
+extra_patterns = []

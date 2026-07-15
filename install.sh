@@ -98,6 +98,10 @@ if [ -d "$XYRA_APP" ]; then
 fi
 install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$BREW_BIN/"
 install -m 0755 "$REPO_DIR/context/xyra_context.py" "$BREW_BIN/xyra-context"
+mkdir -p "$HOME/.xyra"
+rm -rf "$HOME/.xyra/council"
+cp -R "$REPO_DIR/context/council" "$HOME/.xyra/council"
+( cd "$HOME/.xyra" && python3 -m unittest council.test_council >/dev/null 2>&1 ) && echo "  council motoru: test yeşil" || true
 python3 -c "import numpy" 2>/dev/null || python3 -m pip install --user --quiet numpy 2>/dev/null || true
 if command -v ollama >/dev/null 2>&1; then
   ollama list 2>/dev/null | grep -qi nomic-embed || ollama pull nomic-embed-text >/dev/null 2>&1 &

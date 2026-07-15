@@ -116,6 +116,27 @@ xyra-council --review-only --json                    # machine-readable verdict 
 
 Verdicts: `CLEAN`, `APPROVE WITH NOTES` (only low/medium findings), `BLOCK` (any critical/high), or `INCONCLUSIVE` (a lens failed to return). Exit code is non-zero on `BLOCK`, so it drops straight into a pre-commit or CI gate.
 
+### Enterprise controls
+
+The council is a tested, dependency-light Python package (`context/council/`, installed to `~/.xyra/council`) with the controls a team needs:
+
+- **Secret redaction before review.** Diffs are scrubbed of private keys, tokens, `.env` secrets and Solana keypairs before anything reaches a vendor. Nothing sensitive leaves the machine even when a cloud model reviews.
+- **Policy as code.** A per-repo `.xyra/council.toml` sets vendors, lenses, and gates. Path rules require extra lenses and escalate the blocking severity for sensitive code:
+
+  ```toml
+  [[policy.rules]]
+  paths = ["**/money*.ts", "programs/**", "**/vault*.rs"]
+  require = ["security"]
+  block_on = ["critical", "high", "medium"]
+  ```
+
+- **SARIF output** (`--sarif council.sarif`) uploads straight into GitHub Code Scanning.
+- **Verdict cache** keyed by content hash, so an unchanged diff is never re-billed.
+- **Resilient providers** with retry and backoff, per-agent timeouts, and structured JSON logs (`--log-json`).
+- **Audit trail** in `docs/council/` as both Markdown and JSON, one file per run.
+
+Drop-in gates ship in `templates/`: a git `pre-commit` hook (`xyra-council --review-only --staged`) and a `council.yml` GitHub Actions workflow that reviews the PR diff and uploads SARIF.
+
 In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council grounds the builder with the semantic context engine and sharpens reviews with the wiener-conventions, wiener-review and wiener-solana skills, so money and Solana code get scrutinized on integer units and address-poisoning by default.
 
 ## Cosmos: council at project scale
