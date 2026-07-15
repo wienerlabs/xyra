@@ -9,7 +9,9 @@
   {
     "label": "Grok: review current file",
     "command": "grok",
-    "args": ["Review $ZED_FILE and propose minimal fixes. Do not touch unrelated code."],
+    "args": [
+      "Review $ZED_FILE and propose minimal fixes. Do not touch unrelated code."
+    ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": true
@@ -17,7 +19,9 @@
   {
     "label": "Grok: agent dashboard",
     "command": "grok",
-    "args": ["dashboard"],
+    "args": [
+      "dashboard"
+    ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": true
@@ -25,7 +29,9 @@
   {
     "label": "Xyra: test and fix with Grok",
     "command": "xyra-fix",
-    "args": ["test"],
+    "args": [
+      "test"
+    ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": true
@@ -33,7 +39,9 @@
   {
     "label": "Xyra: build and fix with Grok",
     "command": "xyra-fix",
-    "args": ["build"],
+    "args": [
+      "build"
+    ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": true
@@ -54,7 +62,26 @@
   {
     "label": "Claude: continue last session",
     "command": "claude",
-    "args": ["--continue"],
+    "args": [
+      "--continue"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Council: değişikliklerimi rakip vendor incelesin",
+    "command": "xyra-council",
+    "args": [
+      "--review-only"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Council: Grok yaz + Claude incele",
+    "command": "xyra-council",
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": true

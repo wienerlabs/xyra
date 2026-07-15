@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+BUILDER="grok"
+REVIEWER="claude"
+AUTO_FIX=0
+REVIEW_ONLY=0
+
+usage() {
+  cat >&2 <<EOF
+xyra-council: cross-vendor adversarial coding
+Bir vendor uygular, rakip bir vendor sen görmeden inceler. Sabit ücretli olduğu için her görev çapraz-doğrulanır.
+
+Kullanım: xyra-council [--by grok|claude] [--review grok|claude] [--fix] "görev"
+  --by      uygulayan agent (varsayılan: grok)
+  --review  inceleyen rakip agent (varsayılan: claude)
+  --fix     inceleme blocking sorun bulursa uygulayana geri gönder (bir tur)
+EOF
+  exit 1
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --by) BUILDER="$2"; shift 2 ;;
+    --review) REVIEWER="$2"; shift 2 ;;
+    --fix) AUTO_FIX=1; shift ;;
+    --review-only) REVIEW_ONLY=1; shift ;;
+    -h|--help) usage ;;
+    *) break ;;
+  esac
+done
+
+TASK="${*:-}"
+[ "$REVIEW_ONLY" -eq 1 ] || [ -n "$TASK" ] || usage
+[ "$BUILDER" != "$REVIEWER" ] || { echo "uygulayan ve inceleyen aynı vendor olamaz" >&2; exit 1; }
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT" || exit 1
+
+run_agent() {
+  local vendor="$1" prompt="$2"
+  case "$vendor" in
+    grok)   grok --minimal --always-approve -p "$prompt" 2>/dev/null ;;
+    claude) claude -p "$prompt" 2>/dev/null ;;
+    *) echo "bilinmeyen vendor: $vendor" >&2; return 1 ;;
+  esac
+}
+
+if [ "$REVIEW_ONLY" -eq 1 ]; then
+  DIFF="$(git --no-pager diff)"
+  [ -n "$DIFF" ] || { echo "incelenecek değişiklik yok (git diff boş)"; exit 0; }
+  echo "== $REVIEWER (rakip vendor) senin değişikliklerini inceliyor =="
+  run_agent "$REVIEWER" "You are an adversarial code reviewer. Review these uncommitted changes skeptically. Find correctness bugs, security issues (money/Solana: integer units, address poisoning), scope creep, and wiener-conventions violations. If clean, say so in one line. Report by severity with file:line.
+
+Diff:
+$DIFF"
+  exit 0
+fi
+
+CTX=""
+if command -v xyra-context >/dev/null 2>&1; then
+  xyra-context index "$ROOT" >/dev/null 2>&1 || true
+  CTX="$(xyra-context search "$ROOT" "$TASK" 2>/dev/null | head -60)"
+fi
+
+echo "== Konsey: $BUILDER uyguluyor =="
+run_agent "$BUILDER" "Task: $TASK
+
+Follow the wiener-conventions skill. Make the change directly in the working tree, then stop.
+Relevant code context:
+$CTX"
+
+DIFF="$(git --no-pager diff)"
+if [ -z "$DIFF" ]; then
+  echo "== $BUILDER değişiklik yapmadı =="
+  exit 0
+fi
+
+echo ""
+echo "== değişiklik özeti =="
+git --no-pager diff --stat
+
+echo ""
+echo "== $REVIEWER (rakip vendor) çapraz-inceliyor =="
+REVIEW="$(run_agent "$REVIEWER" "You are an adversarial code reviewer from a rival AI vendor. Another agent ($BUILDER) just produced this change for the task: '$TASK'. Be skeptical and thorough. Find correctness bugs, security issues (especially money/Solana: integer units, address poisoning), scope creep, and wiener-conventions violations (no code comments, no em dash, sentence-case UI). If it is genuinely clean, say so in one line. Report findings by severity with file:line.
+
+Diff:
+$DIFF")"
+echo "$REVIEW"
+
+if [ "$AUTO_FIX" -eq 1 ]; then
+  echo ""
+  echo "== $BUILDER incelemeye göre düzeltiyor =="
+  run_agent "$BUILDER" "A rival reviewer flagged issues in your last change for task '$TASK'. Address the real findings with minimal edits, ignore false positives. Reviewer findings:
+$REVIEW"
+  echo ""
+  echo "== düzeltme sonrası diff =="
+  git --no-pager diff --stat
+fi
+
+echo ""
+echo "Konsey bitti. Değişiklikleri incele: git diff   |   geri al: git checkout ."

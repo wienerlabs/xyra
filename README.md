@@ -86,6 +86,18 @@ For a clean reinstall:
 ./update.sh
 ```
 
+## Council: cross-vendor adversarial coding
+
+`xyra-council` is the flagship. One vendor implements a change, a rival vendor reviews it adversarially before you see it. Because Xyra runs on flat-rate subscription quota (Grok Build) plus local models, running two frontier vendors on every task costs nothing at the margin, which metered cloud editors cannot afford. That is the moat.
+
+```bash
+xyra-council "add rate limiting to the API"     # Grok implements, Claude reviews
+xyra-council --review-only                       # rival vendor reviews your own uncommitted diff
+xyra-council --by claude --review grok --fix "..."  # swap roles, auto-apply the review
+```
+
+In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council uses the semantic context engine to ground the builder, and the wiener-conventions and wiener-solana skills to keep reviews sharp on money and Solana code. This is also the execution core for project-level orchestration (Cosmos).
+
 ## Semantic context engine
 
 `context/xyra_context.py` is a dependency-light MCP server that gives every agent (Grok Build, Claude Code, and the native Xyra agent) semantic search over a codebase, instead of grep. It embeds code chunks with a local Ollama model (`nomic-embed-text`, no API cost, nothing leaves the machine), stores vectors in a per-repo SQLite cache, and re-embeds only changed files (content-hash incremental).

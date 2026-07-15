@@ -96,7 +96,7 @@ if [ -d "$XYRA_APP" ]; then
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/xyra"
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/zed"
 fi
-install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$BREW_BIN/"
+install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$BREW_BIN/"
 install -m 0755 "$REPO_DIR/context/xyra_context.py" "$BREW_BIN/xyra-context"
 python3 -c "import numpy" 2>/dev/null || python3 -m pip install --user --quiet numpy 2>/dev/null || true
 if command -v ollama >/dev/null 2>&1; then
