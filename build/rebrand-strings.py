@@ -120,4 +120,4 @@ for root, _, files in os.walk(os.path.join(SRC, "crates")):
                 print(f"  - {old.strip()}")
                 print(f"  + {new.strip()}")
 
-print(f"\n{'UYGULANDI' if APPLY else 'DRY-RUN'}: {total} değişiklik, {files_touched} dosya")
+print(f"\n{'APPLIED' if APPLY else 'DRY-RUN'}: {total} changes, {files_touched} files")

@@ -8,14 +8,14 @@ XYRA_APP="/Applications/Xyra.app"
 BREW_BIN="$(dirname "$(command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)")"
 
 if ! xcode-select -p >/dev/null 2>&1; then
-  echo "Hata: Command Line Tools gerekli: xcode-select --install" >&2
+  echo "error: Command Line Tools required: xcode-select --install" >&2
   exit 1
 fi
 
-command -v cargo >/dev/null 2>&1 || { echo "Hata: Rust gerekli (https://rustup.rs)" >&2; exit 1; }
+command -v cargo >/dev/null 2>&1 || { echo "error: Rust required (https://rustup.rs)" >&2; exit 1; }
 
 if ! pmset -g batt | grep -q "AC Power"; then
-  echo "Uyarı: pil gücündesiniz, derleme 30-60 dakika sürebilir. Şarj kablosu önerilir."
+  echo "warning: on battery power, the build can take 30-60 minutes. A charger is recommended."
 fi
 
 if [ ! -d "$SRC/.git" ]; then
@@ -31,7 +31,7 @@ cd "$SRC"
 ./script/bundle-mac -l
 
 APP_PATH="$(find "$SRC/target" -maxdepth 4 -name "*.app" -type d 2>/dev/null | head -1)"
-[ -n "$APP_PATH" ] || { echo "Hata: derlenen .app bulunamadı" >&2; exit 1; }
+[ -n "$APP_PATH" ] || { echo "error: built .app not found" >&2; exit 1; }
 
 STAGED="$HOME/.cache/xyra/Xyra.app"
 rm -rf "$STAGED"
@@ -48,8 +48,8 @@ killall Dock 2>/dev/null || true
 
 BINARY="$(find "$XYRA_APP/Contents/MacOS" -type f -name "[Xx]yra" -o -type f -name "[Zz]ed" 2>/dev/null | head -1)"
 if [ -n "$BINARY" ] && strings "$BINARY" | grep -q "Welcome to Xyra"; then
-  echo "Doğrulandı: welcome ekranı Xyra diyor."
+  echo "verified: the welcome screen says Xyra."
 fi
 
-echo "Xyra kaynaktan derlendi ve kuruldu: $XYRA_APP"
+echo "Xyra built from source and installed: $XYRA_APP"
 command -v xyra-doctor >/dev/null 2>&1 && xyra-doctor || true

@@ -1,23 +1,23 @@
-# Xyra Agent talimatları
+# Xyra agent instructions
 
-## Dil
-Kullanıcıyla **Türkçe** konuş. Açıklamalar, özetler ve sohbet Türkçe olsun. Kod, kod içi tanımlayıcılar, commit mesajları ve teknik dosya adları İngilizce kalır. Türkçe yazarken tüm diakritik işaretleri doğru kullan (ç, ğ, ı, ö, ş, ü).
+## Language
+Respond to the user in Turkish. Keep explanations, summaries and conversation in Turkish, with correct Turkish diacritics. Code, code identifiers, commit messages and technical file names stay in English.
 
-## Kod kuralları
-- Asla kod yorumu yazma. Ne `//`, `#`, `/* */`, docstring ne de JSX yorumu. Gerekçe commit mesajına veya PR açıklamasına gider, koda değil.
-- Em dash karakterini (—) hiçbir çıktıda kullanma: ne kodda, ne metinde, ne commit'te. Normal tire, virgül veya cümleyi yeniden kur.
-- TypeScript öncelikli. Web için Next.js App Router ve Tailwind v4; Solana için web3.js ve Anchor.
+## Code conventions
+- Never write code comments. No `//`, `#`, `/* */`, docstrings or JSX comments. Rationale belongs in the commit message or PR description, not in the source.
+- Never use the em dash character in any output: not in code, strings, docs, commit messages or UI copy. Use a regular hyphen, a comma or restructure the sentence.
+- TypeScript first. Next.js App Router and Tailwind v4 are the defaults for web work; Solana work uses web3.js and Anchor.
 
-## UI metni
-- UI'da ALL-CAPS kelime yok. Sadece cümle düzeni (ilk harf büyük). Tailwind'de `uppercase` sınıfı ekleme, mevcutsa kaldır.
+## UI copy
+- No all-caps words in UI. Sentence case only: first letter capitalized, rest lowercase. Do not add the `uppercase` Tailwind class; remove it when touching existing code.
 
 ## Next.js
-- i18n Dictionary nesnesini (interpolator fonksiyonları taşıyan) Server Component'ten Client Component'e prop olarak geçirme. Prod'da digest 500 verir. Client component'ler çeviriyi context'ten `useT()` ile alır.
+- Never pass an i18n dictionary object that carries interpolator functions from a Server Component to a Client Component prop. It crashes with a digest 500 in production. Client components read translations through the `useT()` hook from context instead.
 
-## Para ve Solana
-- Para her zaman en küçük birimde integer: TRY için kuruş, SOL için lamport, USDC için 10^6 birim. Para üzerinde float aritmetiği kritik hatadır.
-- Solana'da hedef adresi asla işlem geçmişinden kopyalama (address-poisoning). Adresler yalnızca kanonik config, environment değişkeni veya doğrulanmış sabitten gelir.
+## Money and Solana
+- Money is always an integer in the smallest unit: kurus for TRY, lamports for SOL, 10^6 units for USDC. Float money math is a critical error.
+- On Solana, never copy a destination address from transaction history (address poisoning). Addresses come only from a canonical config, an environment variable or a verified constant.
 
-## Çalışma tarzı
-- Yeni bir şey yazmadan önce mevcut bir çözümü ara ve uyarla. Battle-tested kütüphaneleri el yapımı yardımcılara tercih et.
-- Diff'i minimal ve odaklı tut. Görevin gerektirmediği kodu yeniden biçimlendirme veya yeniden adlandırma.
+## Working style
+- Before writing something new, search for an existing solution to adopt or port. Prefer battle-tested libraries over hand-rolled utilities.
+- Keep diffs minimal and scoped. Do not reformat or rename code the task does not require.

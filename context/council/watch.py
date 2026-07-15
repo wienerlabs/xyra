@@ -105,7 +105,7 @@ def watch(root: str, idle: int, poll: int) -> None:
 def show_queue(root: str, limit: int) -> None:
     path = queue_path(root)
     if not os.path.isfile(path):
-        print("kuyruk boş")
+        print("queue is empty")
         return
     with open(path, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -141,8 +141,8 @@ def install_agent(root: str) -> None:
         f.write(body)
     subprocess.run(["launchctl", "unload", plist], capture_output=True)
     subprocess.run(["launchctl", "load", plist], capture_output=True)
-    print(f"arka plan konseyi yüklendi: {plist}")
-    print(f"kaldırmak için: launchctl unload {plist} && rm {plist}")
+    print(f"background council installed: {plist}")
+    print(f"to remove: launchctl unload {plist} && rm {plist}")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -28,11 +28,11 @@ with open(path, "r", encoding="utf-8") as f:
     content = f.read()
 
 if NEW in content:
-    print("agent ikon yaması zaten uygulanmış")
+    print("agent icon patch already applied")
 elif OLD in content:
     content = content.replace(OLD, NEW, 1)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
-    print("agent ikon yaması uygulandı: Grok/Claude/Ollama marka logoları")
+    print("agent icon patch applied: Grok/Claude/Ollama brand logos")
 else:
-    print("uyarı: custom.rs logo() beklenen biçimde değil, ikon yaması atlandı", file=sys.stderr)
+    print("warning: custom.rs logo() not in the expected shape, icon patch skipped", file=sys.stderr)

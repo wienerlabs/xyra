@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC="${1:?kullanım: patch-brand.sh <zed-kaynak-dizini>}"
+SRC="${1:?usage: patch-brand.sh <zed-source-dir>}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 sed -i '' 's/ReleaseChannel::Stable => "Zed"/ReleaseChannel::Stable => "Xyra"/' "$SRC/crates/release_channel/src/lib.rs"
@@ -47,7 +47,7 @@ python3 "$REPO_DIR/build/patch-font-button.py" "$SRC"
 
 if [ -n "${XYRA_TEAM_ID:-}" ]; then
   sed -i '' "s/APPLE_NOTARIZATION_TEAM=\"[A-Z0-9]*\"/APPLE_NOTARIZATION_TEAM=\"$XYRA_TEAM_ID\"/" "$SRC/script/bundle-mac"
-  echo "notarization team ID ayarlandı: $XYRA_TEAM_ID"
+  echo "notarization team ID set: $XYRA_TEAM_ID"
 fi
 
-echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması, tüm UI stringleri, gömülü skill'ler"
+echo "brand patch applied: release channel, welcome screen and logo, bundle name, icons, embedded Xyra theme, all UI strings, embedded skills"

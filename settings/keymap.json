@@ -28,7 +28,7 @@
       "cmd-alt-k": [
         "task::Spawn",
         {
-          "task_name": "Council: değişikliklerimi rakip vendor incelesin"
+          "task_name": "Council: review my changes with a rival vendor"
         }
       ]
     }

@@ -35,11 +35,11 @@ with open(path, "r", encoding="utf-8") as f:
     content = f.read()
 
 if "xyra-increase-font" in content:
-    print("font butonu yaması zaten uygulanmış")
+    print("font button patch already applied")
 elif ANCHOR in content:
     content = content.replace(ANCHOR, ANCHOR + INSERT, 1)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
-    print("font butonu yaması uygulandı: title bar'a artır/azalt")
+    print("font button patch applied: increase/decrease in the title bar")
 else:
-    print("uyarı: title_bar.rs beklenen yapıda değil, font butonu atlandı", file=sys.stderr)
+    print("warning: title_bar.rs not in the expected shape, font button skipped", file=sys.stderr)

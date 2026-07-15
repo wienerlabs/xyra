@@ -42,8 +42,8 @@ jobs:
       - name: Package Xyra.app
         run: |
           APP="$(find zed-src/target -maxdepth 4 -name Xyra.app -type d | head -1)"
-          [ -n "$APP" ] || { echo "Xyra.app bulunamadı"; exit 1; }
-          grep -aq "Welcome to Xyra" "$APP/Contents/MacOS/zed" || { echo "marka doğrulanamadı"; exit 1; }
+          [ -n "$APP" ] || { echo "Xyra.app not found"; exit 1; }
+          grep -aq "Welcome to Xyra" "$APP/Contents/MacOS/zed" || { echo "brand verification failed"; exit 1; }
           ditto -c -k --sequesterRsrc --keepParent "$APP" "Xyra-$VERSION-macos-arm64.zip"
           shasum -a 256 "Xyra-$VERSION-macos-arm64.zip" | awk '{print $1}' > "Xyra-$VERSION-macos-arm64.zip.sha256"
 
@@ -55,7 +55,7 @@ jobs:
             "Xyra-$VERSION-macos-arm64.zip" \
             "Xyra-$VERSION-macos-arm64.zip.sha256" \
             --title "Xyra $VERSION" \
-            --notes "Xyra $VERSION (Zed $ZED_TAG tabanlı). install.sh bu release'i indirir." \
+            --notes "Xyra $VERSION (based on Zed $ZED_TAG). install.sh downloads this release." \
             || gh release upload "$VERSION" \
                "Xyra-$VERSION-macos-arm64.zip" \
                "Xyra-$VERSION-macos-arm64.zip.sha256" --clobber

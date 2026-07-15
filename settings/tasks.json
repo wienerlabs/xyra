@@ -70,7 +70,7 @@
     "use_new_terminal": true
   },
   {
-    "label": "Council: değişikliklerimi rakip vendor incelesin",
+    "label": "Council: review my changes with a rival vendor",
     "command": "xyra-council",
     "args": [
       "--review-only"
@@ -80,7 +80,7 @@
     "use_new_terminal": true
   },
   {
-    "label": "Council: Grok yaz + Claude incele",
+    "label": "Council: Grok builds, Claude reviews",
     "command": "xyra-council",
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
