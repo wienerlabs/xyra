@@ -43,6 +43,7 @@ for MD in "$SRC/crates/agent_skills/builtin/"*/SKILL.md; do
 done
 
 python3 "$REPO_DIR/build/patch-agent-icons.py" "$SRC"
+python3 "$REPO_DIR/build/patch-font-button.py" "$SRC"
 
 if [ -n "${XYRA_TEAM_ID:-}" ]; then
   sed -i '' "s/APPLE_NOTARIZATION_TEAM=\"[A-Z0-9]*\"/APPLE_NOTARIZATION_TEAM=\"$XYRA_TEAM_ID\"/" "$SRC/script/bundle-mac"
