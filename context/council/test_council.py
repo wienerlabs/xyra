@@ -83,5 +83,26 @@ class SarifTest(unittest.TestCase):
         self.assertEqual(doc["runs"][0]["results"][0]["level"], "error")
 
 
+class WatchTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from council import watch
+        self.watch = watch
+        self.tmp = tempfile.mkdtemp()
+        watch.QUEUE_DIR = os.path.join(self.tmp, "queue")
+
+    def test_enqueue_and_show(self):
+        root = os.path.join(self.tmp, "repo")
+        self.watch.enqueue(root, {"ts": "t", "verdict": "BLOCK", "findings": 1, "blocking": 1, "top": []})
+        path = self.watch.queue_path(root)
+        self.assertTrue(os.path.isfile(path))
+        with open(path) as f:
+            self.assertIn("BLOCK", f.read())
+
+    def test_queue_path_stable(self):
+        r = "/some/repo"
+        self.assertEqual(self.watch.queue_path(r), self.watch.queue_path(r))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

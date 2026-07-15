@@ -150,6 +150,18 @@ xyra-cosmos "migrate the settlement flow to the new vault program"
 
 Once the design is approved, each ticket runs through `xyra-council` (implement + rival review). Design stays local and in-repo, never in a vendor's cloud.
 
+## Always-on council
+
+`xyra-watch` turns the council into a heartbeat for a repository. It watches your working tree, and once you stop changing it for a few minutes, a rival vendor reviews the diff in the background, queues the findings, and notifies you. Because Xyra is flat-rate and local, this runs continuously at no marginal cost, which a metered cloud editor cannot do.
+
+```bash
+xyra-watch ~/cortex                  # foreground: review after 5 idle minutes
+xyra-watch ~/cortex --queue          # show what the background council found
+xyra-watch ~/cortex --install-agent  # run it under launchd, always on
+```
+
+Findings land in a per-repo queue and every run leaves an audit trail. Stop working, and by the time you come back the council has already looked.
+
 ## Semantic context engine
 
 `context/xyra_context.py` is a dependency-light MCP server that gives every agent (Grok Build, Claude Code, and the native Xyra agent) semantic search over a codebase, instead of grep. It embeds code chunks with a local Ollama model (`nomic-embed-text`, no API cost, nothing leaves the machine), stores vectors in a per-repo SQLite cache, and re-embeds only changed files (content-hash incremental).

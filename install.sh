@@ -96,7 +96,7 @@ if [ -d "$XYRA_APP" ]; then
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/xyra"
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/zed"
 fi
-install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$BREW_BIN/"
+install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$REPO_DIR/bin/xyra-watch" "$BREW_BIN/"
 install -m 0755 "$REPO_DIR/context/xyra_context.py" "$BREW_BIN/xyra-context"
 mkdir -p "$HOME/.xyra"
 rm -rf "$HOME/.xyra/council"
