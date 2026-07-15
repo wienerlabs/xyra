@@ -44,4 +44,9 @@ done
 
 python3 "$REPO_DIR/build/patch-agent-icons.py" "$SRC"
 
+if [ -n "${XYRA_TEAM_ID:-}" ]; then
+  sed -i '' "s/APPLE_NOTARIZATION_TEAM=\"[A-Z0-9]*\"/APPLE_NOTARIZATION_TEAM=\"$XYRA_TEAM_ID\"/" "$SRC/script/bundle-mac"
+  echo "notarization team ID ayarlandı: $XYRA_TEAM_ID"
+fi
+
 echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması, tüm UI stringleri, gömülü skill'ler"
