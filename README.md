@@ -86,6 +86,19 @@ For a clean reinstall:
 ./update.sh
 ```
 
+## Semantic context engine
+
+`context/xyra_context.py` is a dependency-light MCP server that gives every agent (Grok Build, Claude Code, and the native Xyra agent) semantic search over a codebase, instead of grep. It embeds code chunks with a local Ollama model (`nomic-embed-text`, no API cost, nothing leaves the machine), stores vectors in a per-repo SQLite cache, and re-embeds only changed files (content-hash incremental).
+
+Installed as `xyra-context` and registered with all three agents automatically. Manual use:
+
+```bash
+xyra-context index /path/to/repo     # build or refresh the index
+xyra-context search /path/to/repo "where is the auth middleware"
+```
+
+Agents call the `code_search` and `code_index` tools directly. This is the foundation for smarter, lower-token context assembly.
+
 ## Skills
 
 Grok sessions load the Wiener skills from `grok/skills/`, installed to `~/.grok/skills/`:

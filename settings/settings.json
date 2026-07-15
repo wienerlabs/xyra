@@ -128,5 +128,15 @@
       ],
       "env": {}
     }
+  },
+  "context_servers": {
+    "xyra-context": {
+      "source": "custom",
+      "command": "/opt/homebrew/bin/xyra-context",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
+    }
   }
 }

@@ -91,12 +91,20 @@ for SKILL_DIR in "$REPO_DIR/grok/skills/"*/; do
   cp "$SKILL_DIR/SKILL.md" "$HOME/.grok/skills/$SKILL_NAME/SKILL.md"
 done
 
-echo "[4/5] xyra komutları oluşturuluyor"
+echo "[4/5] xyra komutları ve semantik context motoru kuruluyor"
 if [ -d "$XYRA_APP" ]; then
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/xyra"
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/zed"
 fi
 install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$BREW_BIN/"
+install -m 0755 "$REPO_DIR/context/xyra_context.py" "$BREW_BIN/xyra-context"
+python3 -c "import numpy" 2>/dev/null || python3 -m pip install --user --quiet numpy 2>/dev/null || true
+if command -v ollama >/dev/null 2>&1; then
+  ollama list 2>/dev/null | grep -qi nomic-embed || ollama pull nomic-embed-text >/dev/null 2>&1 &
+fi
+if command -v grok >/dev/null 2>&1; then
+  grok mcp add -s user xyra-context "$BREW_BIN/xyra-context" -- mcp >/dev/null 2>&1 || true
+fi
 
 echo "[5/5] Kurulum tamamlandı"
 killall Dock 2>/dev/null || true
