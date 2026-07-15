@@ -1,102 +1,321 @@
-#!/usr/bin/env bash
-set -uo pipefail
+#!/usr/bin/env python3
+import argparse
+import concurrent.futures as futures
+import json
+import os
+import re
+import subprocess
+import sys
 
-BUILDER="grok"
-REVIEWER="claude"
-AUTO_FIX=0
-REVIEW_ONLY=0
-
-usage() {
-  cat >&2 <<EOF
-xyra-council: cross-vendor adversarial coding
-Bir vendor uygular, rakip bir vendor sen görmeden inceler. Sabit ücretli olduğu için her görev çapraz-doğrulanır.
-
-Kullanım: xyra-council [--by grok|claude] [--review grok|claude] [--fix] "görev"
-  --by      uygulayan agent (varsayılan: grok)
-  --review  inceleyen rakip agent (varsayılan: claude)
-  --fix     inceleme blocking sorun bulursa uygulayana geri gönder (bir tur)
-EOF
-  exit 1
+VENDORS = {
+    "grok": {
+        "read": ["grok", "--minimal", "--disable-web-search", "-p"],
+        "write": ["grok", "--minimal", "--disable-web-search", "--always-approve", "-p"],
+        "label": "Grok",
+    },
+    "claude": {
+        "read": ["claude", "-p"],
+        "write": ["claude", "-p", "--permission-mode", "acceptEdits"],
+        "label": "Claude",
+    },
 }
 
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --by) BUILDER="$2"; shift 2 ;;
-    --review) REVIEWER="$2"; shift 2 ;;
-    --fix) AUTO_FIX=1; shift ;;
-    --review-only) REVIEW_ONLY=1; shift ;;
-    -h|--help) usage ;;
-    *) break ;;
-  esac
-done
-
-TASK="${*:-}"
-[ "$REVIEW_ONLY" -eq 1 ] || [ -n "$TASK" ] || usage
-[ "$BUILDER" != "$REVIEWER" ] || { echo "uygulayan ve inceleyen aynı vendor olamaz" >&2; exit 1; }
-
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$ROOT" || exit 1
-
-run_agent() {
-  local vendor="$1" prompt="$2"
-  case "$vendor" in
-    grok)   grok --minimal --always-approve -p "$prompt" 2>/dev/null ;;
-    claude) claude -p "$prompt" 2>/dev/null ;;
-    *) echo "bilinmeyen vendor: $vendor" >&2; return 1 ;;
-  esac
+LENSES = {
+    "correctness": (
+        "Correctness and robustness. Logic errors, wrong edge-case handling, "
+        "unhandled rejections and error paths, race conditions, off-by-one, "
+        "state that can desync, double-submit on money actions, missing idempotency."
+    ),
+    "security": (
+        "Security, with emphasis on funds. Money must be integer in the smallest unit "
+        "(kurus, lamports, 10^6 USDC); flag any float money math. Solana destination "
+        "addresses must come from canonical config, never copied from history "
+        "(address poisoning). Flag secrets in client bundles, injection, SSRF, "
+        "unsafe crypto, anon-client RPCs granted privileged access."
+    ),
+    "conventions": (
+        "House conventions and simplicity. No code comments of any kind. No em dash "
+        "character anywhere. No all-caps words in UI, no uppercase Tailwind class. "
+        "No Server-to-Client prop carrying i18n interpolator functions (digest 500). "
+        "Flag scope creep: changes to files the task did not require. Prefer the "
+        "restructuring that makes the change smaller and more direct."
+    ),
 }
 
-if [ "$REVIEW_ONLY" -eq 1 ]; then
-  DIFF="$(git --no-pager diff)"
-  [ -n "$DIFF" ] || { echo "incelenecek değişiklik yok (git diff boş)"; exit 0; }
-  echo "== $REVIEWER (rakip vendor) senin değişikliklerini inceliyor =="
-  run_agent "$REVIEWER" "You are an adversarial code reviewer. Review these uncommitted changes skeptically. Find correctness bugs, security issues (money/Solana: integer units, address poisoning), scope creep, and wiener-conventions violations. If clean, say so in one line. Report by severity with file:line.
+SEVERITY_ORDER = {"critical": 3, "high": 2, "medium": 1, "low": 0}
+BLOCKING = {"critical", "high"}
 
-Diff:
-$DIFF"
-  exit 0
-fi
+VERDICT_INSTRUCTION = (
+    "Respond with exactly one fenced ```json block and nothing else. Schema:\n"
+    '{"findings": [{"severity": "critical|high|medium|low", "file": "path", '
+    '"line": 0, "issue": "one sentence", "fix": "concrete remedy"}], '
+    '"summary": "one line"}\n'
+    "Empty findings array means clean. Be specific and terse. Do not invent issues to look thorough."
+)
 
-CTX=""
-if command -v xyra-context >/dev/null 2>&1; then
-  xyra-context index "$ROOT" >/dev/null 2>&1 || true
-  CTX="$(xyra-context search "$ROOT" "$TASK" 2>/dev/null | head -60)"
-fi
 
-echo "== Konsey: $BUILDER uyguluyor =="
-run_agent "$BUILDER" "Task: $TASK
+def die(msg):
+    sys.stderr.write(f"xyra-council: {msg}\n")
+    sys.exit(1)
 
-Follow the wiener-conventions skill. Make the change directly in the working tree, then stop.
-Relevant code context:
-$CTX"
 
-DIFF="$(git --no-pager diff)"
-if [ -z "$DIFF" ]; then
-  echo "== $BUILDER değişiklik yapmadı =="
-  exit 0
-fi
+def repo_root():
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        )
+        return out.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return os.getcwd()
 
-echo ""
-echo "== değişiklik özeti =="
-git --no-pager diff --stat
 
-echo ""
-echo "== $REVIEWER (rakip vendor) çapraz-inceliyor =="
-REVIEW="$(run_agent "$REVIEWER" "You are an adversarial code reviewer from a rival AI vendor. Another agent ($BUILDER) just produced this change for the task: '$TASK'. Be skeptical and thorough. Find correctness bugs, security issues (especially money/Solana: integer units, address poisoning), scope creep, and wiener-conventions violations (no code comments, no em dash, sentence-case UI). If it is genuinely clean, say so in one line. Report findings by severity with file:line.
+def git_diff(root, staged):
+    args = ["git", "--no-pager", "diff"]
+    if staged:
+        args.append("--staged")
+    out = subprocess.run(args, cwd=root, capture_output=True, text=True)
+    return out.stdout
 
-Diff:
-$DIFF")"
-echo "$REVIEW"
 
-if [ "$AUTO_FIX" -eq 1 ]; then
-  echo ""
-  echo "== $BUILDER incelemeye göre düzeltiyor =="
-  run_agent "$BUILDER" "A rival reviewer flagged issues in your last change for task '$TASK'. Address the real findings with minimal edits, ignore false positives. Reviewer findings:
-$REVIEW"
-  echo ""
-  echo "== düzeltme sonrası diff =="
-  git --no-pager diff --stat
-fi
+def run_vendor(vendor, mode, prompt, timeout):
+    spec = VENDORS[vendor]
+    argv = list(spec[mode])
+    argv.append(prompt)
+    try:
+        out = subprocess.run(
+            argv, capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"{vendor} timed out after {timeout}s"
+    except FileNotFoundError:
+        return None, f"{vendor} binary not found on PATH"
+    if out.returncode != 0:
+        return None, (out.stderr or out.stdout or "nonzero exit").strip()[:400]
+    return out.stdout.strip(), None
 
-echo ""
-echo "Konsey bitti. Değişiklikleri incele: git diff   |   geri al: git checkout ."
+
+def extract_verdict(text):
+    if not text:
+        return None
+    block = re.search(r"```json\s*(.+?)```", text, re.DOTALL)
+    candidate = block.group(1) if block else None
+    if candidate is None:
+        brace = re.search(r"\{.*\}", text, re.DOTALL)
+        candidate = brace.group(0) if brace else None
+    if candidate is None:
+        return None
+    try:
+        data = json.loads(candidate)
+    except json.JSONDecodeError:
+        return None
+    findings = data.get("findings") or []
+    clean = []
+    for f in findings:
+        sev = str(f.get("severity", "low")).lower()
+        if sev not in SEVERITY_ORDER:
+            sev = "low"
+        clean.append({
+            "severity": sev,
+            "file": str(f.get("file", "")).strip(),
+            "line": f.get("line", 0),
+            "issue": str(f.get("issue", "")).strip(),
+            "fix": str(f.get("fix", "")).strip(),
+        })
+    return {"findings": clean, "summary": str(data.get("summary", "")).strip()}
+
+
+def context_for(root, task):
+    if not task:
+        return ""
+    ctx = os.environ.get("XYRA_CONTEXT_BIN", "xyra-context")
+    try:
+        subprocess.run([ctx, "index", root], capture_output=True, timeout=180)
+        out = subprocess.run(
+            [ctx, "search", root, task], capture_output=True, text=True, timeout=60,
+        )
+        return out.stdout.strip()[:4000]
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
+
+
+def review_lens(vendor, lens, diff, task, timeout):
+    prompt = (
+        f"You are an adversarial code reviewer from a rival AI vendor. A change was "
+        f"produced for the task: '{task or 'uncommitted work'}'. Review it through one "
+        f"lens only:\n\n{LENSES[lens]}\n\n{VERDICT_INSTRUCTION}\n\nDiff:\n{diff}"
+    )
+    text, err = run_vendor(vendor, "read", prompt, timeout)
+    if err:
+        return lens, {"error": err, "findings": [], "summary": ""}
+    verdict = extract_verdict(text)
+    if verdict is None:
+        return lens, {"error": "unparseable verdict", "findings": [], "summary": text[:300]}
+    return lens, verdict
+
+
+def run_council(vendor, lenses, diff, task, timeout):
+    results = {}
+    with futures.ThreadPoolExecutor(max_workers=len(lenses)) as pool:
+        jobs = [pool.submit(review_lens, vendor, ln, diff, task, timeout) for ln in lenses]
+        for job in futures.as_completed(jobs):
+            lens, verdict = job.result()
+            results[lens] = verdict
+    return results
+
+
+def all_findings(results):
+    out = []
+    for lens, v in results.items():
+        for f in v.get("findings", []):
+            out.append({**f, "lens": lens})
+    out.sort(key=lambda f: -SEVERITY_ORDER[f["severity"]])
+    return out
+
+
+def verdict_label(findings, errored):
+    blocking = [f for f in findings if f["severity"] in BLOCKING]
+    if blocking:
+        return "BLOCK", blocking
+    if findings:
+        return "APPROVE WITH NOTES", []
+    if errored:
+        return "INCONCLUSIVE", []
+    return "CLEAN", []
+
+
+def render(findings):
+    if not findings:
+        return "  no findings\n"
+    lines = []
+    for f in findings:
+        loc = f["file"] + (f":{f['line']}" if f.get("line") else "")
+        lines.append(f"  [{f['severity']}] ({f['lens']}) {loc}\n    {f['issue']}")
+        if f.get("fix"):
+            lines.append(f"    fix: {f['fix']}")
+    return "\n".join(lines) + "\n"
+
+
+def audit(root, task, builder, reviewer, rounds):
+    docdir = os.path.join(root, "docs", "council")
+    os.makedirs(docdir, exist_ok=True)
+    slug = re.sub(r"[^a-z0-9-]", "", re.sub(r"\s+", "-", (task or "review").lower()))[:48]
+    stamp = os.environ.get("XYRA_STAMP", "")
+    name = f"{stamp + '-' if stamp else ''}{slug or 'review'}.md"
+    path = os.path.join(docdir, name)
+    parts = [f"# Council: {task or 'uncommitted review'}", "",
+             f"builder: {builder}  reviewer: {reviewer}", ""]
+    for i, (label, findings) in enumerate(rounds, 1):
+        parts.append(f"## Round {i}: {label}")
+        parts.append("```")
+        parts.append(render(findings).rstrip())
+        parts.append("```")
+        parts.append("")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(parts))
+    return path
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        prog="xyra-council",
+        description="Cross-vendor adversarial coding. One vendor writes, a rival cross-examines "
+                    "through correctness, security and convention lenses in parallel.",
+    )
+    ap.add_argument("task", nargs="*", help="task to implement (omit with --review-only)")
+    ap.add_argument("--by", default="grok", choices=VENDORS, help="implementing vendor")
+    ap.add_argument("--review", default="claude", choices=VENDORS, help="reviewing rival vendor")
+    ap.add_argument("--lenses", default="correctness,security,conventions",
+                    help="comma-separated review lenses")
+    ap.add_argument("--rounds", type=int, default=2, help="max build/review rounds when blocking")
+    ap.add_argument("--review-only", action="store_true", help="review the current diff, do not build")
+    ap.add_argument("--staged", action="store_true", help="review the staged diff")
+    ap.add_argument("--timeout", type=int, default=900, help="per-agent timeout in seconds")
+    ap.add_argument("--json", action="store_true", help="emit machine-readable result")
+    args = ap.parse_args()
+
+    if args.by == args.review:
+        die("implementing and reviewing vendor must differ")
+    lenses = [x.strip() for x in args.lenses.split(",") if x.strip() in LENSES]
+    if not lenses:
+        die("no valid lenses")
+    task = " ".join(args.task).strip()
+    if not args.review_only and not task:
+        die("provide a task, or use --review-only")
+
+    root = repo_root()
+    os.chdir(root)
+    builder = VENDORS[args.by]["label"]
+    reviewer = VENDORS[args.review]["label"]
+    rounds_log = []
+
+    def emit(s):
+        if not args.json:
+            sys.stdout.write(s)
+            sys.stdout.flush()
+
+    if args.review_only:
+        diff = git_diff(root, args.staged)
+        if not diff.strip():
+            die("no changes to review (git diff is empty)")
+        emit(f"== {reviewer} reviews your changes through {len(lenses)} lenses ==\n")
+        results = run_council(args.review, lenses, diff, task, args.timeout)
+        findings = all_findings(results)
+        errored = any(v.get("error") for v in results.values())
+        label, _ = verdict_label(findings, errored)
+        emit(f"\nverdict: {label}\n{render(findings)}")
+        rounds_log.append((label, findings))
+        path = audit(root, task or "uncommitted", builder, reviewer, rounds_log)
+        emit(f"\naudit: {os.path.relpath(path, root)}\n")
+        if args.json:
+            print(json.dumps({"verdict": label, "findings": findings, "audit": path}, indent=2))
+        sys.exit(0 if label in ("CLEAN", "APPROVE WITH NOTES") else 2)
+
+    ctx = context_for(root, task)
+    build_prompt = (
+        f"Task: {task}\n\nFollow the wiener-conventions skill strictly. Make the change "
+        f"directly in the working tree, then stop. Relevant code context:\n{ctx}"
+    )
+    emit(f"== {builder} implements ==\n")
+    _, err = run_vendor(args.by, "write", build_prompt, args.timeout)
+    if err:
+        die(f"{builder} failed: {err}")
+
+    final_label = "CLEAN"
+    for rnd in range(1, args.rounds + 1):
+        diff = git_diff(root, False)
+        if not diff.strip():
+            emit("no changes produced\n")
+            final_label = "CLEAN"
+            break
+        emit(f"\n== round {rnd}: {reviewer} cross-examines ({len(lenses)} lenses) ==\n")
+        results = run_council(args.review, lenses, diff, task, args.timeout)
+        findings = all_findings(results)
+        errored = any(v.get("error") for v in results.values())
+        label, blocking = verdict_label(findings, errored)
+        emit(f"verdict: {label}\n{render(findings)}")
+        rounds_log.append((label, findings))
+        final_label = label
+        if label != "BLOCK" or rnd == args.rounds:
+            break
+        emit(f"\n== {builder} addresses {len(blocking)} blocking findings ==\n")
+        fix_prompt = (
+            f"A rival reviewer blocked your change for task '{task}'. Address only the "
+            f"genuine blocking findings with minimal edits, ignore false positives. "
+            f"Findings:\n{json.dumps(blocking, indent=2)}"
+        )
+        _, err = run_vendor(args.by, "write", fix_prompt, args.timeout)
+        if err:
+            emit(f"fix round failed: {err}\n")
+            break
+
+    path = audit(root, task, builder, reviewer, rounds_log)
+    emit(f"\naudit: {os.path.relpath(path, root)}\n")
+    emit(f"review: git diff   |   revert: git checkout .\n")
+    if args.json:
+        print(json.dumps({"verdict": final_label, "rounds": len(rounds_log), "audit": path}, indent=2))
+    sys.exit(0 if final_label in ("CLEAN", "APPROVE WITH NOTES") else 2)
+
+
+if __name__ == "__main__":
+    main()

@@ -4,7 +4,18 @@
 
 <h1 align="center">Xyra</h1>
 
-<p align="center">Wiener Labs' internal code editor. Zed-based, agent-first, with Grok Build and Claude Code built into a single panel.</p>
+<p align="center">The agentic code editor where every change is cross-examined by a rival AI before you see it. Flat-rate, local-first, and yours.</p>
+
+## Why Xyra is different
+
+Other agentic editors are metered clouds tied to one model vendor. Xyra is the opposite, and the difference is architectural, not cosmetic:
+
+- **A rival reviews every change.** One vendor writes, a rival vendor cross-examines it through correctness, security and convention lenses before it reaches you. Metered editors cannot afford to run two frontier vendors on every task. Xyra can, because it runs on flat-rate subscription quota.
+- **Flat-rate, not per-token.** Grok Build runs on your SuperGrok or X Premium quota. No meter, no per-token anxiety, so agents can run wide and often.
+- **One editor, every model.** Grok Build, Claude Code and local Ollama models live in one panel. Route the best agent per task, run them in parallel, stay vendor-independent.
+- **Local-first and yours.** Semantic code search runs on a local embedding model, local models keep code on the machine, telemetry is off, and the whole setup ships as a repo your team owns. No lock-in, no exfiltration.
+
+The flagship is the council: `xyra-council` and its project-scale sibling `xyra-cosmos`. Both are documented below.
 
 ## What it installs
 
@@ -12,14 +23,16 @@
 
 - Zed editor (official Homebrew cask), renamed and branded as Xyra
 - Xyra theme: lime and near-black palette derived from the logo, dark and light variants, follows the system appearance
-- Grok Build CLI (official xAI cask) wired into the agent panel over ACP
-- The wiener-conventions skill for Grok: house rules for code, commits and UI copy applied in every agent session
-- Editor tasks and keyboard shortcuts for driving agents without leaving the editor
-- Snippets for the house stack: Zod, Next.js server actions and route handlers, client components with context i18n, Anchor instructions
-- JetBrains Mono Nerd Font (editor, UI and terminal), VSCode keymap, block cursor, Zeta edit predictions
-- The `xyra` terminal command
+- Grok Build CLI (official xAI cask) and Claude Code wired into the agent panel over ACP
+- `xyra-council`: cross-vendor adversarial coding (the flagship)
+- `xyra-cosmos`: project-scale design orchestration with a rival challenge
+- `xyra-context`: a local semantic context engine shared by every agent
+- The wiener-conventions, wiener-review, wiener-solana, wiener-ship and prompt-optimizer skills applied in every agent session
+- Editor tasks and shortcuts, house-stack snippets (Zod, Next.js, Anchor), a Turkish-speaking agent via AGENTS.md
+- JetBrains Mono Nerd Font, Cursor keymap, block cursor, Zeta edit predictions
+- The `xyra`, `xyra-fix`, `xyra-doctor` terminal commands
 
-After install, one panel gives you three layers: Grok Build (subscription quota, up to 8 parallel agents), Claude Code (built in), and optional local Ollama models.
+After install, one panel gives you three layers: Grok Build (subscription quota, up to 8 parallel agents), Claude Code (built in), and optional local Ollama models, all reviewing each other through the council.
 
 ## Requirements
 
@@ -88,15 +101,22 @@ For a clean reinstall:
 
 ## Council: cross-vendor adversarial coding
 
-`xyra-council` is the flagship. One vendor implements a change, a rival vendor reviews it adversarially before you see it. Because Xyra runs on flat-rate subscription quota (Grok Build) plus local models, running two frontier vendors on every task costs nothing at the margin, which metered cloud editors cannot afford. That is the moat.
+`xyra-council` is the flagship. One vendor implements a change; a rival vendor then cross-examines it through three lenses in parallel, correctness, security and house conventions, and returns a structured verdict. If the verdict blocks, the builder addresses the blocking findings and the rival re-examines, up to a bounded number of rounds. Every run writes an audit trail to `docs/council/`.
+
+Because Xyra runs on flat-rate subscription quota (Grok Build) plus local models, running two frontier vendors on every task costs nothing at the margin, which metered cloud editors cannot afford. That is the moat.
 
 ```bash
-xyra-council "add rate limiting to the API"     # Grok implements, Claude reviews
-xyra-council --review-only                       # rival vendor reviews your own uncommitted diff
-xyra-council --by claude --review grok --fix "..."  # swap roles, auto-apply the review
+xyra-council "add rate limiting to the API"          # Grok builds, Claude cross-examines, fixes if blocked
+xyra-council --review-only                            # rival reviews your own uncommitted diff
+xyra-council --review-only --staged                  # review the staged diff before committing
+xyra-council --by claude --review grok "..."         # swap roles
+xyra-council --lenses security --rounds 3 "..."      # focus one lens, allow more fix rounds
+xyra-council --review-only --json                    # machine-readable verdict for scripts and hooks
 ```
 
-In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council uses the semantic context engine to ground the builder, and the wiener-conventions and wiener-solana skills to keep reviews sharp on money and Solana code.
+Verdicts: `CLEAN`, `APPROVE WITH NOTES` (only low/medium findings), `BLOCK` (any critical/high), or `INCONCLUSIVE` (a lens failed to return). Exit code is non-zero on `BLOCK`, so it drops straight into a pre-commit or CI gate.
+
+In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council grounds the builder with the semantic context engine and sharpens reviews with the wiener-conventions, wiener-review and wiener-solana skills, so money and Solana code get scrutinized on integer units and address-poisoning by default.
 
 ## Cosmos: council at project scale
 
