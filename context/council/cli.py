@@ -46,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("task", nargs="*")
     ap.add_argument("--by", choices=VENDORS)
     ap.add_argument("--review", choices=VENDORS)
+    ap.add_argument("--reviewers", help="comma-separated reviewer panel, e.g. claude,local")
+    ap.add_argument("--consensus", choices=["any", "majority"])
     ap.add_argument("--lenses")
     ap.add_argument("--rounds", type=int)
     ap.add_argument("--timeout", type=int)
@@ -64,6 +66,10 @@ def main(argv: list[str] | None = None) -> int:
         overrides["builder"] = args.by
     if args.review:
         overrides["reviewer"] = args.review
+    if args.reviewers:
+        overrides["reviewers"] = [x.strip() for x in args.reviewers.split(",") if x.strip()]
+    if args.consensus:
+        overrides["consensus"] = args.consensus
     if args.lenses:
         overrides["lenses"] = [x.strip() for x in args.lenses.split(",") if x.strip()]
     if args.rounds is not None:
@@ -91,8 +97,9 @@ def main(argv: list[str] | None = None) -> int:
     council = Council(root, config, log)
 
     try:
+        panel_label = "/".join(label(p) for p in config.panel())
         if args.review_only:
-            log.say(f"== {label(config.reviewer)} reviews your changes ({len(config.lenses)} lenses, policy-gated) ==\n")
+            log.say(f"== {panel_label} reviews your changes ({len(config.lenses)} lenses, policy-gated) ==\n")
             final, rounds = council.run_review_only(args.staged)
         else:
             final, rounds = council.run_task(task)
@@ -101,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     log.say(f"\nverdict: {final.label}\n{_render(final)}")
-    md_path, json_path = audit_mod.write(root, task, label(config.builder), label(config.reviewer), run_id, rounds, council.redacted)
+    md_path, json_path = audit_mod.write(root, task, label(config.builder), panel_label, run_id, rounds, council.redacted)
     log.say(f"\naudit: {os.path.relpath(md_path, root)}  (json: {os.path.relpath(json_path, root)})\n")
     if council.redacted:
         log.say(f"redacted {council.redacted} secret(s) before review\n")

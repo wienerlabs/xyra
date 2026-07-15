@@ -71,6 +71,8 @@ class PolicyRule:
 class Config:
     builder: str = "grok"
     reviewer: str = "claude"
+    reviewers: list[str] = field(default_factory=list)
+    consensus: str = "any"
     lenses: list[str] = field(default_factory=lambda: ["correctness", "security", "conventions"])
     rounds: int = 2
     timeout: int = 900
@@ -81,3 +83,11 @@ class Config:
     redact_enabled: bool = True
     custom_lenses: dict[str, str] = field(default_factory=dict)
     redact_patterns: list[str] = field(default_factory=list)
+
+    def panel(self) -> list[str]:
+        seq = self.reviewers or [self.reviewer]
+        out = []
+        for v in seq:
+            if v and v != self.builder and v not in out:
+                out.append(v)
+        return out

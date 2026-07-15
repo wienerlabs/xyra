@@ -74,6 +74,37 @@ class Council:
         block_on = policy_mod.block_severities(self.config, diff)
         return verdict_mod.decide(results, block_on)
 
+    def review_panel(self, diff: str, task: str, base_lenses: list[str]) -> Verdict:
+        panel = self.config.panel()
+        if len(panel) == 1:
+            return self.review(diff, task, panel[0], base_lenses)
+        verdicts = []
+        for rv in panel:
+            v = self.review(diff, task, rv, base_lenses)
+            for f in v.findings:
+                f.lens = f"{rv}:{f.lens}"
+            verdicts.append((rv, v))
+        findings = [f for _, v in verdicts for f in v.findings]
+        findings.sort(key=lambda f: -f.rank())
+        results = [r for _, v in verdicts for r in v.results]
+        block_votes = sum(1 for _, v in verdicts if v.label == "BLOCK")
+        if self.config.consensus == "majority":
+            blocked = block_votes * 2 > len(verdicts)
+        else:
+            blocked = block_votes > 0
+        blocking = [f for _, v in verdicts for f in v.blocking] if blocked else []
+        errored = any(v.label == "INCONCLUSIVE" for _, v in verdicts)
+        if blocked:
+            label = "BLOCK"
+        elif findings:
+            label = "APPROVE WITH NOTES"
+        elif errored:
+            label = "INCONCLUSIVE"
+        else:
+            label = "CLEAN"
+        self.log.event("consensus", panel=panel, mode=self.config.consensus, block_votes=block_votes, label=label)
+        return Verdict(label=label, findings=findings, results=results, blocking=blocking)
+
     def build(self, vendor: str, prompt: str) -> str | None:
         _, err = providers.run(vendor, "write", prompt, self.config.timeout, self.config.retries)
         return err
@@ -82,7 +113,7 @@ class Council:
         diff = self._diff(staged)
         if not diff.strip():
             raise RuntimeError("no changes to review (git diff is empty)")
-        v = self.review(diff, "", self.config.reviewer, self.config.lenses)
+        v = self.review_panel(diff, "", self.config.lenses)
         return v, [v]
 
     def run_task(self, task: str) -> tuple[Verdict, list[Verdict]]:
@@ -103,8 +134,8 @@ class Council:
                 v = Verdict(label="CLEAN")
                 rounds.append(v)
                 return v, rounds
-            self.log.say(f"\n== round {rnd}: {providers.label(self.config.reviewer)} cross-examines ==\n")
-            v = self.review(diff, task, self.config.reviewer, self.config.lenses)
+            self.log.say(f"\n== round {rnd}: {'/'.join(providers.label(p) for p in self.config.panel())} cross-examines ==\n")
+            v = self.review_panel(diff, task, self.config.lenses)
             rounds.append(v)
             if v.label != "BLOCK" or rnd == self.config.rounds:
                 return v, rounds

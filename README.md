@@ -130,6 +130,7 @@ The council is a tested, dependency-light Python package (`context/council/`, in
   block_on = ["critical", "high", "medium"]
   ```
 
+- **Reviewer panel with consensus.** Instead of one rival, review with a panel (`--reviewers claude,local`) and require `any` or `majority` to block (`--consensus`). Three independent angles catch what one misses.
 - **SARIF output** (`--sarif council.sarif`) uploads straight into GitHub Code Scanning.
 - **Verdict cache** keyed by content hash, so an unchanged diff is never re-billed.
 - **Resilient providers** with retry and backoff, per-agent timeouts, and structured JSON logs (`--log-json`).

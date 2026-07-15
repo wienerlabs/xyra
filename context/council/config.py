@@ -22,6 +22,8 @@ def load(root: str, overrides: dict | None = None) -> Config:
     council = _table(data, "council")
     cfg.builder = council.get("builder", cfg.builder)
     cfg.reviewer = council.get("reviewer", cfg.reviewer)
+    cfg.reviewers = list(council.get("reviewers", cfg.reviewers))
+    cfg.consensus = str(council.get("consensus", cfg.consensus)).lower()
     cfg.lenses = list(council.get("lenses", cfg.lenses))
     cfg.rounds = int(council.get("rounds", cfg.rounds))
     cfg.timeout = int(council.get("timeout", cfg.timeout))
@@ -52,6 +54,8 @@ def load(root: str, overrides: dict | None = None) -> Config:
         if v is not None:
             setattr(cfg, k, v)
 
-    if cfg.builder == cfg.reviewer:
-        raise ValueError("builder and reviewer vendor must differ")
+    if cfg.consensus not in ("any", "majority"):
+        raise ValueError("consensus must be 'any' or 'majority'")
+    if not cfg.panel():
+        raise ValueError("need at least one reviewer that is not the builder")
     return cfg

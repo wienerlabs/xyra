@@ -83,6 +83,20 @@ class SarifTest(unittest.TestCase):
         self.assertEqual(doc["runs"][0]["results"][0]["level"], "error")
 
 
+class PanelTest(unittest.TestCase):
+    def test_default_single(self):
+        self.assertEqual(Config(builder="grok", reviewer="claude").panel(), ["claude"])
+
+    def test_multi(self):
+        self.assertEqual(Config(builder="grok", reviewers=["claude", "local"]).panel(), ["claude", "local"])
+
+    def test_builder_excluded(self):
+        self.assertEqual(Config(builder="claude", reviewers=["claude", "grok"]).panel(), ["grok"])
+
+    def test_dedup(self):
+        self.assertEqual(Config(builder="grok", reviewers=["claude", "claude", "local"]).panel(), ["claude", "local"])
+
+
 class WatchTest(unittest.TestCase):
     def setUp(self):
         import tempfile
