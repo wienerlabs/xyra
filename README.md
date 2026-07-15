@@ -96,7 +96,18 @@ xyra-council --review-only                       # rival vendor reviews your own
 xyra-council --by claude --review grok --fix "..."  # swap roles, auto-apply the review
 ```
 
-In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council uses the semantic context engine to ground the builder, and the wiener-conventions and wiener-solana skills to keep reviews sharp on money and Solana code. This is also the execution core for project-level orchestration (Cosmos).
+In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council uses the semantic context engine to ground the builder, and the wiener-conventions and wiener-solana skills to keep reviews sharp on money and Solana code.
+
+## Cosmos: council at project scale
+
+`xyra-cosmos` takes a project objective and runs the council at the design level: one vendor writes a design doc grounded in the codebase, a rival vendor challenges it (risks, missing pieces, simpler approach, money/Solana safety), the first vendor finalizes it, and the result lands in `docs/cosmos/` for you to review before any code is written. The most valuable artifact in a large project is a design vetted from two independent angles.
+
+```bash
+xyra-cosmos "migrate the settlement flow to the new vault program"
+# -> docs/cosmos/<date>-<slug>.md  (design + rival challenge on the record)
+```
+
+Once the design is approved, each ticket runs through `xyra-council` (implement + rival review). Design stays local and in-repo, never in a vendor's cloud.
 
 ## Semantic context engine
 
