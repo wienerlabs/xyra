@@ -42,4 +42,6 @@ for MD in "$SRC/crates/agent_skills/builtin/"*/SKILL.md; do
   sed -i '' -E 's/[[:<:]]Zed[[:>:]]/Xyra/g' "$MD"
 done
 
+python3 "$REPO_DIR/build/patch-agent-icons.py" "$SRC"
+
 echo "marka yaması uygulandı: release channel, welcome ekranı ve logosu, bundle adı, simgeler, gömülü Xyra teması, tüm UI stringleri, gömülü skill'ler"
