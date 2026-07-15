@@ -106,7 +106,8 @@
     "commit_message_model": {
       "provider": "ollama",
       "model": "qwen2.5-coder:32b"
-    }
+    },
+    "single_file_review": false
   },
   "agent_servers": {
     "Grok Build": {
