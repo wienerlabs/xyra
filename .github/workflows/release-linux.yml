@@ -47,16 +47,59 @@ jobs:
         working-directory: zed-src
         run: ./script/bundle-linux
 
-      - name: Package and publish
+      - name: Package AppImage and tarball, publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
           TARBALL="$(find zed-src/target -name 'zed-*.tar.gz' -o -name 'zed-*.tar.zst' 2>/dev/null | head -1)"
           [ -n "$TARBALL" ] || { echo "no linux tarball produced"; exit 1; }
+          mkdir -p extract && tar xf "$TARBALL" -C extract
+          BUNDLE="$(find extract -maxdepth 2 -type d -name 'zed.app' | head -1)"
+          [ -n "$BUNDLE" ] || { echo "zed.app not found in tarball"; exit 1; }
+
+          APPDIR="Xyra.AppDir"
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib" "$APPDIR/usr/share/xyra"
+          cp -a "$BUNDLE/bin/." "$APPDIR/usr/bin/"
+          [ -d "$BUNDLE/lib" ] && cp -a "$BUNDLE/lib/." "$APPDIR/usr/lib/" || true
+          [ -d "$BUNDLE/share" ] && cp -a "$BUNDLE/share/." "$APPDIR/usr/share/" || true
+          [ -f "$BUNDLE/licenses.md" ] && cp "$BUNDLE/licenses.md" "$APPDIR/usr/share/xyra/" || true
+          ln -sf zed "$APPDIR/usr/bin/xyra"
+
+          convert assets/xyra-icon.png -resize 256x256 "$APPDIR/xyra.png"
+          cp "$APPDIR/xyra.png" "$APPDIR/.DirIcon"
+
+          cat > "$APPDIR/xyra.desktop" <<EOF
+          [Desktop Entry]
+          Name=Xyra
+          Comment=The agentic code editor
+          Exec=xyra %F
+          Icon=xyra
+          Type=Application
+          Categories=Development;IDE;TextEditor;
+          Terminal=false
+          StartupWMClass=dev.zed.Zed
+          EOF
+
+          cat > "$APPDIR/AppRun" <<'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/zed" "$@"
+          EOF
+          chmod +x "$APPDIR/AppRun"
+
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          APPIMAGE="Xyra-$VERSION-x86_64.AppImage"
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "$APPIMAGE"
+          sha256sum "$APPIMAGE" | awk '{print $1}' > "$APPIMAGE.sha256"
+
           EXT="${TARBALL##*.}"
-          DEST="Xyra-$VERSION-linux-x86_64.tar.$EXT"
-          cp "$TARBALL" "$DEST"
-          sha256sum "$DEST" | awk '{print $1}' > "$DEST.sha256"
-          gh release upload "$VERSION" "$DEST" "$DEST.sha256" --clobber \
-            || gh release create "$VERSION" "$DEST" "$DEST.sha256" \
+          TARDEST="Xyra-$VERSION-linux-x86_64.tar.$EXT"
+          cp "$TARBALL" "$TARDEST"
+          sha256sum "$TARDEST" | awk '{print $1}' > "$TARDEST.sha256"
+
+          gh release upload "$VERSION" "$APPIMAGE" "$APPIMAGE.sha256" "$TARDEST" "$TARDEST.sha256" --clobber \
+            || gh release create "$VERSION" "$APPIMAGE" "$APPIMAGE.sha256" "$TARDEST" "$TARDEST.sha256" \
                  --title "Xyra $VERSION" --notes "Xyra $VERSION Linux build (based on Zed $ZED_TAG)."
