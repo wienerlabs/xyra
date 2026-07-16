@@ -22,6 +22,8 @@ jobs:
     env:
       ZED_TAG: v1.10.3
       VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      CC: clang
+      CXX: clang++
     steps:
       - name: Checkout xyra
         uses: actions/checkout@v4
@@ -36,7 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo bash zed-src/script/linux
-          sudo apt-get install -y imagemagick perl
+          sudo apt-get install -y imagemagick perl clang
 
       - name: Apply Wiener brand patch
         run: ./build/patch-brand.sh "$PWD/zed-src"
