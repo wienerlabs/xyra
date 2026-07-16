@@ -1,0 +1,60 @@
+name: release-linux
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version tag (e.g. v0.2.0)"
+        required: true
+
+concurrency:
+  group: release-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      ZED_TAG: v1.10.3
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout xyra
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Clone Zed source
+        run: git clone --depth 1 --branch "$ZED_TAG" https://github.com/zed-industries/zed.git zed-src
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo bash zed-src/script/linux
+          sudo apt-get install -y imagemagick perl
+
+      - name: Apply Wiener brand patch
+        run: ./build/patch-brand.sh "$PWD/zed-src"
+
+      - name: Build bundle
+        working-directory: zed-src
+        run: ./script/bundle-linux
+
+      - name: Package and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARBALL="$(find zed-src/target -name 'zed-*.tar.gz' -o -name 'zed-*.tar.zst' 2>/dev/null | head -1)"
+          [ -n "$TARBALL" ] || { echo "no linux tarball produced"; exit 1; }
+          EXT="${TARBALL##*.}"
+          DEST="Xyra-$VERSION-linux-x86_64.tar.$EXT"
+          cp "$TARBALL" "$DEST"
+          sha256sum "$DEST" | awk '{print $1}' > "$DEST.sha256"
+          gh release upload "$VERSION" "$DEST" "$DEST.sha256" --clobber \
+            || gh release create "$VERSION" "$DEST" "$DEST.sha256" \
+                 --title "Xyra $VERSION" --notes "Xyra $VERSION Linux build (based on Zed $ZED_TAG)."
