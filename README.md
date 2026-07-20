@@ -69,6 +69,8 @@ A `.github/workflows/release.yml` workflow can build and publish automatically o
 2. Open Xyra and sign in with GitHub from the top right. This enables Zeta edit predictions.
 3. Open the agent panel (cmd+?) and pick Grok Build from the + menu. Claude Code ships in the same menu.
 
+You sign in once. The installer registers a launchd agent (`xyra-grok-keepalive`) that exercises the xAI refresh token every two hours, so the session stays alive indefinitely instead of dying after long idle gaps. If xAI still revokes the session, the agent reopens the browser flow, which completes on its own while your x.ai web session is alive, and posts a notification either way. Check it with `xyra-grok-keepalive status`.
+
 Track quota from inside Grok Build with the `/usage` command.
 
 ## Daily driving

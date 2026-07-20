@@ -96,7 +96,7 @@ if [ -d "$XYRA_APP" ]; then
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/xyra"
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/zed"
 fi
-install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$REPO_DIR/bin/xyra-watch" "$BREW_BIN/"
+install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$REPO_DIR/bin/xyra-watch" "$REPO_DIR/bin/xyra-grok-keepalive" "$BREW_BIN/"
 install -m 0755 "$REPO_DIR/context/xyra_context.py" "$BREW_BIN/xyra-context"
 mkdir -p "$HOME/.xyra"
 rm -rf "$HOME/.xyra/council"
@@ -109,6 +109,7 @@ fi
 if command -v grok >/dev/null 2>&1; then
   grok mcp add -s user xyra-context "$BREW_BIN/xyra-context" -- mcp >/dev/null 2>&1 || true
 fi
+"$BREW_BIN/xyra-grok-keepalive" install >/dev/null 2>&1 && echo "  grok session keepalive: active (auto-renews sign-in every 2h)" || true
 
 echo "[5/5] install complete"
 killall Dock 2>/dev/null || true

@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+GROK_BIN="${GROK_BIN:-/opt/homebrew/bin/grok}"
+AUTH_FILE="$HOME/.grok/auth.json"
+LOG_FILE="$HOME/.xyra/logs/grok-keepalive.log"
+LABEL="com.wienerlabs.xyra.grok-keepalive"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+THRESHOLD=$((4 * 3600))
+
+log() {
+  mkdir -p "$(dirname "$LOG_FILE")"
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG_FILE"
+}
+
+notify() {
+  /usr/bin/osascript -e "display notification \"$1\" with title \"Xyra\"" >/dev/null 2>&1 || true
+}
+
+seconds_left() {
+  /usr/bin/python3 - "$AUTH_FILE" <<'PY'
+import datetime, json, sys
+try:
+    entry = next(iter(json.load(open(sys.argv[1])).values()))
+    expires = datetime.datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
+    print(int((expires - datetime.datetime.now(datetime.timezone.utc)).total_seconds()))
+except Exception:
+    print(-1)
+PY
+}
+
+run_capped() {
+  local cap=$1
+  shift
+  "$@" >/dev/null 2>&1 &
+  local pid=$!
+  local waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$cap" ]; do
+    sleep 5
+    waited=$((waited + 5))
+  done
+  kill "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  return 0
+}
+
+keepalive() {
+  if [ ! -x "$GROK_BIN" ]; then
+    GROK_BIN="$(command -v grok 2>/dev/null || true)"
+    [ -n "$GROK_BIN" ] || { log "grok cli not found, skipping"; return 0; }
+  fi
+  if [ ! -f "$AUTH_FILE" ]; then
+    log "no auth file, sign-in required"
+    notify "Grok sign-in required: grok login --oauth"
+    return 0
+  fi
+  local left
+  left=$(seconds_left)
+  if [ "$left" -gt "$THRESHOLD" ]; then
+    log "token fresh, ${left}s left"
+    return 0
+  fi
+  log "token stale (${left}s left), refreshing silently"
+  run_capped 60 "$GROK_BIN" models
+  sleep 3
+  left=$(seconds_left)
+  if [ "$left" -gt "$THRESHOLD" ]; then
+    log "silent refresh ok, ${left}s left"
+    return 0
+  fi
+  log "silent refresh failed, starting oauth renewal"
+  run_capped 180 "$GROK_BIN" login --oauth
+  left=$(seconds_left)
+  if [ "$left" -gt "$THRESHOLD" ]; then
+    log "oauth renewal ok, ${left}s left"
+    notify "Grok session renewed"
+  else
+    log "renewal failed, manual sign-in required"
+    notify "Grok sign-in required: grok login --oauth"
+  fi
+}
+
+install_agent() {
+  mkdir -p "$HOME/Library/LaunchAgents" "$HOME/.xyra/logs"
+  cat > "$PLIST" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$SELF_PATH</string>
+    <string>run</string>
+  </array>
+  <key>StartInterval</key><integer>7200</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>$HOME/.xyra/logs/grok-keepalive-launchd.log</string>
+  <key>StandardErrorPath</key><string>$HOME/.xyra/logs/grok-keepalive-launchd.log</string>
+</dict>
+</plist>
+XML
+  launchctl unload "$PLIST" 2>/dev/null
+  launchctl load "$PLIST" 2>/dev/null
+  echo "grok session keepalive installed: $PLIST"
+  echo "to remove: xyra-grok-keepalive uninstall"
+}
+
+uninstall_agent() {
+  launchctl unload "$PLIST" 2>/dev/null
+  rm -f "$PLIST"
+  echo "grok session keepalive removed"
+}
+
+show_status() {
+  local left
+  left=$(seconds_left)
+  if [ "$left" -lt 0 ]; then
+    echo "session: no valid auth file"
+  else
+    echo "session: token expires in $((left / 3600))h $(((left % 3600) / 60))m"
+  fi
+  if [ -f "$PLIST" ] && launchctl list "$LABEL" >/dev/null 2>&1; then
+    echo "agent: loaded (refresh every 2h)"
+  else
+    echo "agent: not installed, run: xyra-grok-keepalive install"
+  fi
+  if [ -f "$LOG_FILE" ]; then
+    echo "recent activity:"
+    tail -5 "$LOG_FILE"
+  fi
+}
+
+SELF_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+
+case "${1:-run}" in
+  run) keepalive ;;
+  install) install_agent ;;
+  uninstall) uninstall_agent ;;
+  status) show_status ;;
+  *) echo "usage: xyra-grok-keepalive [run|install|uninstall|status]"; exit 1 ;;
+esac

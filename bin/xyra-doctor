@@ -40,6 +40,12 @@ else
   bad "grok CLI missing, run: brew install --cask grok-build"
 fi
 
+if [ -f "$HOME/Library/LaunchAgents/com.wienerlabs.xyra.grok-keepalive.plist" ] && launchctl list com.wienerlabs.xyra.grok-keepalive >/dev/null 2>&1; then
+  ok "grok session keepalive active (auto-renews sign-in)"
+else
+  warn "grok session keepalive not active, run: xyra-grok-keepalive install"
+fi
+
 if command -v claude >/dev/null 2>&1; then ok "claude CLI present"; else warn "claude CLI missing (optional)"; fi
 
 ZED_CONFIG_DIR="$HOME/.config/zed"
