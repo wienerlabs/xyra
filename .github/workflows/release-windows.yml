@@ -82,7 +82,7 @@ jobs:
           SETUP="zed-src/target/Xyra-x86_64.exe"
           [ -f "$SETUP" ] || SETUP="$(find zed-src/target -maxdepth 1 -name '*-x86_64.exe' | head -1)"
           [ -f "$SETUP" ] || { echo "installer not found"; exit 1; }
-          DEST="Xyra-$VERSION-windows-x86_64.exe"
+          DEST="Xyra-$VERSION-Windows-x64.exe"
           cp "$SETUP" "$DEST"
           sha256sum "$DEST" | awk '{print $1}' > "$DEST.sha256"
           gh release upload "$VERSION" "$DEST" "$DEST.sha256" --clobber \

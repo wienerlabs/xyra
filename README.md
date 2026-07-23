@@ -40,10 +40,10 @@ Every release ships four packages, all built from source by CI:
 
 | Platform | Asset |
 |---|---|
-| macOS Apple Silicon | `Xyra-<version>-macos-arm64.zip` |
-| macOS Intel | `Xyra-<version>-macos-x86_64.zip` |
-| Linux x86_64 | `Xyra-<version>-x86_64.AppImage` (plus a tar.gz) |
-| Windows x86_64 | `Xyra-<version>-windows-x86_64.exe` (Inno Setup installer) |
+| macOS Apple Silicon | `Xyra-<version>-macOS-AppleSilicon.zip` |
+| macOS Intel | `Xyra-<version>-macOS-Intel.zip` |
+| Linux x64 | `Xyra-<version>-Linux-x64.AppImage` (plus a tar.gz) |
+| Windows x64 | `Xyra-<version>-Windows-x64.exe` (Inno Setup installer) |
 
 On every platform the agent menu includes Grok Build out of the box, and the welcome page shows a Grok sign-in button (or your signed-in state) so a fresh download is agent-ready in one click. The [Grok CLI](https://x.ai/cli) installs on macOS, Linux and Windows with the one-liners on that page.
 

@@ -35,13 +35,14 @@ install_app_from_release() {
   command -v gh >/dev/null 2>&1 || brew install gh
   gh auth status >/dev/null 2>&1 || fail "gh sign-in required: gh auth login"
   local arch tmp zip
-  arch="$(uname -m)"; [ "$arch" = "arm64" ] || arch="x86_64"
+  arch="$(uname -m)"
+  if [ "$arch" = "arm64" ]; then arch="AppleSilicon"; else arch="Intel"; fi
   tmp="$(mktemp -d)"
-  echo "  downloading the latest release ($arch)..."
-  if ! gh release download --repo "$REPO" --pattern "Xyra-*-macos-$arch.zip" --dir "$tmp" 2>/dev/null; then
+  echo "  downloading the latest release (macOS $arch)..."
+  if ! gh release download --repo "$REPO" --pattern "Xyra-*-macOS-$arch.zip" --dir "$tmp" 2>/dev/null; then
     rm -rf "$tmp"; return 1
   fi
-  zip="$(ls "$tmp"/Xyra-*-macos-$arch.zip 2>/dev/null | head -1)"
+  zip="$(ls "$tmp"/Xyra-*-macOS-$arch.zip 2>/dev/null | head -1)"
   [ -n "$zip" ] || { rm -rf "$tmp"; return 1; }
   if [ -f "$zip.sha256" ]; then
     echo "  verifying sha256..."

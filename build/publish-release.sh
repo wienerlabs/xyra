@@ -16,11 +16,11 @@ if ! grep -aq "Welcome to Xyra" "$BIN" 2>/dev/null; then
 fi
 
 ARCH="$(uname -m)"
-[ "$ARCH" = "arm64" ] || ARCH="x86_64"
+if [ "$ARCH" = "arm64" ]; then ARCH="AppleSilicon"; else ARCH="Intel"; fi
 ZED_BASE="$(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo unknown)"
 
 STAGE="$(mktemp -d)"
-ASSET="$STAGE/Xyra-$VERSION-macos-$ARCH.zip"
+ASSET="$STAGE/Xyra-$VERSION-macOS-$ARCH.zip"
 echo "packaging: $ASSET"
 ditto "$APP" "$STAGE/Xyra.app"
 (cd "$STAGE" && ditto -c -k --sequesterRsrc --keepParent Xyra.app "$ASSET")

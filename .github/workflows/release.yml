@@ -22,9 +22,9 @@ jobs:
       matrix:
         include:
           - triple: aarch64-apple-darwin
-            suffix: arm64
+            suffix: AppleSilicon
           - triple: x86_64-apple-darwin
-            suffix: x86_64
+            suffix: Intel
     permissions:
       contents: write
     env:
@@ -59,18 +59,18 @@ jobs:
           APP="$(find "zed-src/target/${{ matrix.triple }}" -maxdepth 3 -name Xyra.app -type d | head -1)"
           [ -n "$APP" ] || { echo "Xyra.app not found"; exit 1; }
           grep -aq "Welcome to Xyra" "$APP/Contents/MacOS/zed" || { echo "brand verification failed"; exit 1; }
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip"
-          shasum -a 256 "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip" | awk '{print $1}' > "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip.sha256"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip"
+          shasum -a 256 "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip" | awk '{print $1}' > "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip.sha256"
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$VERSION" \
-            "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip" \
-            "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip.sha256" \
+            "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip" \
+            "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip.sha256" \
             --title "Xyra $VERSION" \
             --notes "Xyra $VERSION (based on Zed $ZED_TAG). install.sh downloads this release." \
             || gh release upload "$VERSION" \
-               "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip" \
-               "Xyra-$VERSION-macos-${{ matrix.suffix }}.zip.sha256" --clobber
+               "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip" \
+               "Xyra-$VERSION-macOS-${{ matrix.suffix }}.zip.sha256" --clobber
