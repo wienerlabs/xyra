@@ -34,7 +34,10 @@ for ICON in app-icon.png app-icon@2x.png; do
   if command -v sips >/dev/null 2>&1; then
     SIZE=$(sips -g pixelWidth "$TARGET" | awk '/pixelWidth/ {print $2}')
     sips -z "$SIZE" "$SIZE" "$REPO_DIR/assets/xyra-icon.png" --out "$TARGET" >/dev/null
-  elif command -v convert >/dev/null 2>&1; then
+  elif command -v magick >/dev/null 2>&1; then
+    SIZE=$(magick identify -format "%w" "$TARGET" 2>/dev/null || echo 512)
+    magick "$REPO_DIR/assets/xyra-icon.png" -resize "${SIZE}x${SIZE}" "$TARGET"
+  elif convert --version 2>/dev/null | grep -qi imagemagick; then
     SIZE=$(identify -format "%w" "$TARGET" 2>/dev/null || echo 512)
     convert "$REPO_DIR/assets/xyra-icon.png" -resize "${SIZE}x${SIZE}" "$TARGET"
   else
