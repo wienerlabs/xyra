@@ -3,6 +3,8 @@ set -euo pipefail
 
 SRC="${1:?usage: patch-brand.sh <zed-source-dir>}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="${PYTHON:-python3}"
+command -v "$PY" >/dev/null 2>&1 || PY=python
 
 if sed --version >/dev/null 2>&1; then
   sed_i() { sed -i "$@"; }
@@ -47,15 +49,42 @@ if [ -f "$SRC/assets/images/zed_logo.svg" ]; then
   cp "$REPO_DIR/assets/xyra-logo.svg" "$SRC/assets/images/zed_logo.svg"
 fi
 
-python3 "$REPO_DIR/build/rebrand-strings.py" "$SRC" --apply | tail -1
+"$PY" "$REPO_DIR/build/rebrand-strings.py" "$SRC" --apply | tail -1
 
 for MD in "$SRC/crates/agent_skills/builtin/"*/SKILL.md; do
   [ -f "$MD" ] || continue
   perl -i -pe 's/\bZed\b/Xyra/g' "$MD"
 done
 
-python3 "$REPO_DIR/build/patch-agent-icons.py" "$SRC"
-python3 "$REPO_DIR/build/patch-font-button.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-agent-icons.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-font-button.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-grok-onboarding.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-ui-scale.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-money-rain.py" "$SRC"
+
+if [ -f "$SRC/script/bundle-windows.ps1" ]; then
+  PS1_FILE="$SRC/script/bundle-windows.ps1"
+  sed_i 's/{{2DB0DA96-CA55-49BB-AF4F-64AF36A86712}/{{EF205767-8E1A-429E-BF57-6D266458D92B}/' "$PS1_FILE"
+  sed_i 's/\$appName = "Zed"$/$appName = "Xyra"/' "$PS1_FILE"
+  sed_i 's/\$appDisplayName = "Zed"$/$appDisplayName = "Xyra"/' "$PS1_FILE"
+  sed_i 's/\$appSetupName = "Zed-\$Architecture"/$appSetupName = "Xyra-$Architecture"/' "$PS1_FILE"
+  sed_i 's/\$regValueName = "Zed"$/$regValueName = "Xyra"/' "$PS1_FILE"
+  sed_i 's/\$appUserId = "ZedIndustries.Zed"$/$appUserId = "WienerLabs.Xyra"/' "$PS1_FILE"
+  sed_i 's/\$appShellNameShort = "Z&ed"$/$appShellNameShort = "X\&yra"/' "$PS1_FILE"
+  echo "windows installer identity patched"
+fi
+
+if [ -f "$SRC/crates/zed/resources/windows/zed.iss" ]; then
+  ISS_FILE="$SRC/crates/zed/resources/windows/zed.iss"
+  sed_i 's/AppPublisher=Zed Industries/AppPublisher=Wiener Labs/' "$ISS_FILE"
+  sed_i 's|AppPublisherURL=https://www.zed.dev/|AppPublisherURL=https://github.com/wienerlabs/xyra|' "$ISS_FILE"
+fi
+
+WIN_ICO="$SRC/crates/zed/resources/windows/app-icon.ico"
+if [ -f "$WIN_ICO" ] && command -v magick >/dev/null 2>&1; then
+  magick "$REPO_DIR/assets/xyra-icon.png" -define icon:auto-resize=256,128,96,64,48,32,16 "$WIN_ICO"
+  echo "windows app icon replaced"
+fi
 
 if [ -n "${XYRA_TEAM_ID:-}" ]; then
   sed_i "s/APPLE_NOTARIZATION_TEAM=\"[A-Z0-9]*\"/APPLE_NOTARIZATION_TEAM=\"$XYRA_TEAM_ID\"/" "$SRC/script/bundle-mac"

@@ -1,0 +1,84 @@
+name: release-windows
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version tag (e.g. v0.4.0)"
+        required: true
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    env:
+      ZED_TAG: v1.10.3
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Force LF line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout xyra
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install ImageMagick
+        run: choco install imagemagick -y --no-progress
+
+      - name: Clone Zed source
+        shell: bash
+        run: git clone --depth 1 --branch "$ZED_TAG" https://github.com/zed-industries/zed.git zed-src
+
+      - name: Apply Wiener brand patch
+        shell: bash
+        run: ./build/patch-brand.sh "$PWD/zed-src"
+
+      - name: Adapt bundle script to hosted runner
+        shell: pwsh
+        run: |
+          $ps1 = "zed-src/script/bundle-windows.ps1"
+          $content = Get-Content $ps1 -Raw
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -property installationPath
+          if (-not $vs) { throw "Visual Studio not found" }
+          $content = $content.Replace('C:\Program Files\Microsoft Visual Studio\2022\Community', $vs)
+          $sdkRoot = "C:\Program Files (x86)\Windows Kits\10\bin"
+          $latestSdk = (Get-ChildItem $sdkRoot -Directory -Filter "10.0.*" | Sort-Object Name -Descending | Select-Object -First 1).Name
+          if (-not $latestSdk) { throw "Windows SDK not found" }
+          $content = $content.Replace('10.0.26100.0', $latestSdk)
+          Set-Content $ps1 $content -NoNewline
+          Write-Output "VS: $vs"
+          Write-Output "SDK: $latestSdk"
+
+      - name: Build Windows installer
+        working-directory: zed-src
+        shell: pwsh
+        env:
+          CI: ""
+        run: script/bundle-windows.ps1 -Architecture x86_64
+
+      - name: Package and publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SETUP="zed-src/target/Xyra-x86_64.exe"
+          [ -f "$SETUP" ] || SETUP="$(find zed-src/target -maxdepth 1 -name '*-x86_64.exe' | head -1)"
+          [ -f "$SETUP" ] || { echo "installer not found"; exit 1; }
+          DEST="Xyra-$VERSION-windows-x86_64.exe"
+          cp "$SETUP" "$DEST"
+          sha256sum "$DEST" | awk '{print $1}' > "$DEST.sha256"
+          gh release upload "$VERSION" "$DEST" "$DEST.sha256" --clobber \
+            || gh release create "$VERSION" "$DEST" "$DEST.sha256" \
+                 --title "Xyra $VERSION" --notes "Xyra $VERSION Windows build (based on Zed $ZED_TAG)."
