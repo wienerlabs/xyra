@@ -34,9 +34,22 @@ The flagship is the council: `xyra-council` and its project-scale sibling `xyra-
 
 After install, one panel gives you three layers: Grok Build (subscription quota, up to 8 parallel agents), Claude Code (built in), and optional local Ollama models, all reviewing each other through the council.
 
+## Downloads
+
+Every release ships four packages, all built from source by CI:
+
+| Platform | Asset |
+|---|---|
+| macOS Apple Silicon | `Xyra-<version>-macos-arm64.zip` |
+| macOS Intel | `Xyra-<version>-macos-x86_64.zip` |
+| Linux x86_64 | `Xyra-<version>-x86_64.AppImage` (plus a tar.gz) |
+| Windows x86_64 | `Xyra-<version>-windows-x86_64.exe` (Inno Setup installer) |
+
+On every platform the agent menu includes Grok Build out of the box, and the welcome page shows a Grok sign-in button (or your signed-in state) so a fresh download is agent-ready in one click. The [Grok CLI](https://x.ai/cli) installs on macOS, Linux and Windows with the one-liners on that page.
+
 ## Requirements
 
-- macOS and [Homebrew](https://brew.sh)
+- macOS and [Homebrew](https://brew.sh) for the full `install.sh` experience; on Linux and Windows use the packaged builds above
 - A personal SuperGrok or X Premium+ subscription for Grok Build
 - Optional: a Claude Code account, Ollama
 
@@ -84,7 +97,7 @@ Agent tasks are available from the task picker (cmd-shift-p, then "task: spawn")
 | cmd-alt-t | Xyra: test and fix with Grok |
 | cmd-alt-c | Claude: continue last session |
 
-The agent panel is docked on the right. The inline assistant lives on ctrl-enter and uses the configured model. Multiple agent threads can run side by side; the dashboard task shows parallel Grok agents live.
+The agent panel is docked on the right. The inline assistant lives on ctrl-enter and uses the configured model. Multiple agent threads can run side by side; the dashboard task shows parallel Grok agents live. When an agent finishes a task, the panel celebrates with a three second dollar rain, because shipped work should feel like it.
 
 Two commands work in any repository, inside or outside the editor:
 
