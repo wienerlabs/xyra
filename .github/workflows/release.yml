@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +36,13 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Select newest Xcode
+        run: |
+          XCODE="$(ls -d /Applications/Xcode_1*.app 2>/dev/null | sort -V | tail -1)"
+          [ -n "$XCODE" ] || { echo "no Xcode found"; exit 1; }
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       - name: Clone Zed source
         run: git clone --depth 1 --branch "$ZED_TAG" https://github.com/zed-industries/zed.git zed-src
