@@ -36,6 +36,7 @@ TEST_MARKERS = (
 
 
 def is_candidate(path):
+    path = path.replace("\\", "/")
     if not path.endswith(".rs"):
         return False
     if any(path.endswith(sfx) for sfx in EXCLUDE_FILE_SUFFIXES):
