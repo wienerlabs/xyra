@@ -18,11 +18,16 @@ jobs:
   build:
     runs-on: windows-2022
     timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [en, tr]
     permissions:
       contents: write
     env:
       ZED_TAG: v1.10.3
       VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      XYRA_LANG: ${{ matrix.lang }}
       CARGO_HOME: D:\ch
       RUSTUP_HOME: D:\rh
     steps:
@@ -82,7 +87,8 @@ jobs:
           SETUP="zed-src/target/Xyra-x86_64.exe"
           [ -f "$SETUP" ] || SETUP="$(find zed-src/target -maxdepth 1 -name '*-x86_64.exe' | head -1)"
           [ -f "$SETUP" ] || { echo "installer not found"; exit 1; }
-          DEST="Xyra-$VERSION-Windows-x64.exe"
+          SUFFIX=""; [ "${XYRA_LANG:-en}" != "en" ] && SUFFIX="-$XYRA_LANG"
+          DEST="Xyra-$VERSION-Windows-x64$SUFFIX.exe"
           cp "$SETUP" "$DEST"
           sha256sum "$DEST" | awk '{print $1}' > "$DEST.sha256"
           gh release upload "$VERSION" "$DEST" "$DEST.sha256" --clobber \

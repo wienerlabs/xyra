@@ -17,11 +17,16 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [en, tr]
     permissions:
       contents: write
     env:
       ZED_TAG: v1.10.3
       VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      XYRA_LANG: ${{ matrix.lang }}
       CC: clang
       CXX: clang++
     steps:
@@ -52,6 +57,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
+          SUFFIX=""; [ "${XYRA_LANG:-en}" != "en" ] && SUFFIX="-$XYRA_LANG"
           TARBALL="$(find zed-src/target -name 'zed-*.tar.gz' -o -name 'zed-*.tar.zst' 2>/dev/null | head -1)"
           [ -n "$TARBALL" ] || { echo "no linux tarball produced"; exit 1; }
           mkdir -p extract && tar xf "$TARBALL" -C extract
@@ -89,14 +95,14 @@ jobs:
 
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
-          APPIMAGE="Xyra-$VERSION-Linux-x64.AppImage"
+          APPIMAGE="Xyra-$VERSION-Linux-x64$SUFFIX.AppImage"
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run "$APPDIR" "$APPIMAGE"
           SIZE=$(stat -c%s "$APPIMAGE")
           [ "$SIZE" -ge $((100*1024*1024)) ] || { echo "AppImage suspiciously small: $SIZE bytes"; exit 1; }
           sha256sum "$APPIMAGE" | awk '{print $1}' > "$APPIMAGE.sha256"
 
           EXT="${TARBALL##*.}"
-          TARDEST="Xyra-$VERSION-Linux-x64.tar.$EXT"
+          TARDEST="Xyra-$VERSION-Linux-x64$SUFFIX.tar.$EXT"
           cp "$TARBALL" "$TARDEST"
           sha256sum "$TARDEST" | awk '{print $1}' > "$TARDEST.sha256"
 

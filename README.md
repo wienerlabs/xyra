@@ -63,6 +63,25 @@ cd xyra
 
 By default this **downloads the pre-built Xyra from the latest GitHub Release** (no compilation) and applies the Wiener configuration. It needs the GitHub CLI signed in (`gh auth login`); the installer installs `gh` if missing. To build from source instead (no Xcode required, ~45-60 minutes), run `./install.sh --source`. If no release exists yet, the installer falls back to a source build automatically.
 
+### Turkish UI
+
+Install Xyra with a fully localized Turkish interface by adding `--lang tr`:
+
+```bash
+./install.sh --lang tr
+```
+
+If a Turkish release is published, the `-tr` package is downloaded; otherwise Xyra is built from source in Turkish (`XYRA_LANG=tr`, ~45-60 min). The translation layer is a build-time source-string pass that lives entirely under [`translations/`](translations/) and never touches the English build. See [translations/README.md](translations/README.md) for the workflow and how to extend coverage.
+
+**Switching between Turkish and English.** The language is fixed at build time — there is **no in-app toggle**. Zed has no runtime localization; UI strings are compiled into the binary, so the language you get is the build you installed. To switch, reinstall with the desired flag — each install replaces `/Applications/Xyra.app` in place, and your settings, keymaps and extensions are left untouched:
+
+```bash
+./install.sh --lang tr   # Turkish
+./install.sh             # English (default)
+```
+
+Until a Turkish release is published on GitHub, add `--source` so the chosen language is built locally instead of downloaded (e.g. `./install.sh --source --lang tr` for Turkish, `./install.sh --source` for English).
+
 ## Publishing a release
 
 Maintainers publish a versioned build to the repo's Releases so employees install without compiling:

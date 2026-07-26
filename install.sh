@@ -9,17 +9,25 @@ ZED_CONFIG_DIR="$HOME/.config/zed"
 BREW_BIN="$(dirname "$(command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)")"
 
 METHOD="release"
-for arg in "$@"; do
-  case "$arg" in
+LANG_CODE="${XYRA_LANG:-en}"
+while [ $# -gt 0 ]; do
+  case "$1" in
     --source) METHOD="source" ;;
     --release) METHOD="release" ;;
+    --lang) shift; LANG_CODE="${1:-en}" ;;
+    --lang=*) LANG_CODE="${1#*=}" ;;
+    --tr) LANG_CODE="tr" ;;
     -h|--help)
-      echo "Usage: ./install.sh [--release | --source]"
-      echo "  --release  download the prebuilt Xyra from GitHub Releases (default, fast)"
-      echo "  --source   build from source (no Xcode needed, ~45-60 min)"
+      echo "Usage: ./install.sh [--release | --source] [--lang CODE]"
+      echo "  --release    download the prebuilt Xyra from GitHub Releases (default, fast)"
+      echo "  --source     build from source (no Xcode needed, ~45-60 min)"
+      echo "  --lang CODE  install a localized build (e.g. --lang tr for Turkish; default en)"
+      echo "               release mode fetches the -CODE asset; source mode builds it (XYRA_LANG)"
       exit 0 ;;
   esac
+  if [ $# -gt 0 ]; then shift; fi
 done
+export XYRA_LANG="$LANG_CODE"
 
 fail() { echo "error: $1" >&2; exit 1; }
 command -v brew >/dev/null 2>&1 || fail "Homebrew required: https://brew.sh"
@@ -34,15 +42,17 @@ quit_running_xyra() {
 install_app_from_release() {
   command -v gh >/dev/null 2>&1 || brew install gh
   gh auth status >/dev/null 2>&1 || fail "gh sign-in required: gh auth login"
-  local arch tmp zip
+  local arch tmp zip suffix
   arch="$(uname -m)"
   if [ "$arch" = "arm64" ]; then arch="AppleSilicon"; else arch="Intel"; fi
+  suffix=""
+  [ "$LANG_CODE" != "en" ] && suffix="-$LANG_CODE"
   tmp="$(mktemp -d)"
-  echo "  downloading the latest release (macOS $arch)..."
-  if ! gh release download --repo "$REPO" --pattern "Xyra-*-macOS-$arch.zip" --dir "$tmp" 2>/dev/null; then
+  echo "  downloading the latest release (macOS $arch${suffix:+, lang $LANG_CODE})..."
+  if ! gh release download --repo "$REPO" --pattern "Xyra-*-macOS-$arch$suffix.zip" --dir "$tmp" 2>/dev/null; then
     rm -rf "$tmp"; return 1
   fi
-  zip="$(ls "$tmp"/Xyra-*-macOS-$arch.zip 2>/dev/null | head -1)"
+  zip="$(ls "$tmp"/Xyra-*-macOS-$arch$suffix.zip 2>/dev/null | head -1)"
   [ -n "$zip" ] || { rm -rf "$tmp"; return 1; }
   if [ -f "$zip.sha256" ]; then
     echo "  verifying sha256..."

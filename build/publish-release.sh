@@ -17,10 +17,11 @@ fi
 
 ARCH="$(uname -m)"
 if [ "$ARCH" = "arm64" ]; then ARCH="AppleSilicon"; else ARCH="Intel"; fi
+SUFFIX=""; [ "${XYRA_LANG:-en}" != "en" ] && SUFFIX="-$XYRA_LANG"
 ZED_BASE="$(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo unknown)"
 
 STAGE="$(mktemp -d)"
-ASSET="$STAGE/Xyra-$VERSION-macOS-$ARCH.zip"
+ASSET="$STAGE/Xyra-$VERSION-macOS-$ARCH$SUFFIX.zip"
 echo "packaging: $ASSET"
 ditto "$APP" "$STAGE/Xyra.app"
 (cd "$STAGE" && ditto -c -k --sequesterRsrc --keepParent Xyra.app "$ASSET")
