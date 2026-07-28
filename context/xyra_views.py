@@ -218,68 +218,154 @@ def graph_data(root):
     return files, edges
 
 
+VENDOR_DIR = os.path.expanduser("~/.xyra/lib/vendor")
+CYTOSCAPE_URL = "https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"
+
+
+def vendor_script(name, url):
+    os.makedirs(VENDOR_DIR, exist_ok=True)
+    path = os.path.join(VENDOR_DIR, name)
+    if os.path.exists(path) and os.path.getsize(path) > 50_000:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=90) as r:
+        blob = r.read().decode("utf-8")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(blob)
+    return blob
+
+
 TOPOLOGY_JS = """
 const data = __DATA__;
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-function resize(){ canvas.width = innerWidth; canvas.height = innerHeight - 120; }
-resize(); addEventListener('resize', () => { resize(); });
 const deg = {};
-data.edges.forEach(([a,b]) => { deg[a]=(deg[a]||0)+1; deg[b]=(deg[b]||0)+1; });
-const nodes = data.files.map((f,i) => ({
-  id: f, x: canvas.width/2 + Math.cos(i)*Math.min(canvas.width,canvas.height)/3,
-  y: canvas.height/2 + Math.sin(i*1.7)*Math.min(canvas.width,canvas.height)/3,
-  vx:0, vy:0, d: deg[f]||0, on:true }));
-const index = new Map(nodes.map(n => [n.id, n]));
-const links = data.edges.map(([a,b]) => ({s:index.get(a), t:index.get(b)})).filter(l => l.s && l.t);
-let hover = null;
-function step(){
-  for (const n of nodes){ n.vx *= 0.86; n.vy *= 0.86; }
-  for (let i=0;i<nodes.length;i++) for (let j=i+1;j<nodes.length;j++){
-    const a=nodes[i], b=nodes[j];
-    let dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy+0.01;
-    if (d2 < 40000){ const f = 240/d2; a.vx+=dx*f; a.vy+=dy*f; b.vx-=dx*f; b.vy-=dy*f; }
-  }
-  for (const l of links){
-    const dx=l.t.x-l.s.x, dy=l.t.y-l.s.y, d=Math.sqrt(dx*dx+dy*dy)||1;
-    const f=(d-90)*0.0025; l.s.vx+=dx*f; l.s.vy+=dy*f; l.t.vx-=dx*f; l.t.vy-=dy*f;
-  }
-  for (const n of nodes){
-    n.vx += (canvas.width/2 - n.x)*0.0009; n.vy += (canvas.height/2 - n.y)*0.0009;
-    n.x += Math.max(-6, Math.min(6, n.vx)); n.y += Math.max(-6, Math.min(6, n.vy));
-  }
-  draw();
-  requestAnimationFrame(step);
+data.edges.forEach(([a, b]) => { deg[a] = (deg[a] || 0) + 1; deg[b] = (deg[b] || 0) + 1; });
+const dirOf = f => (f.includes('/') ? f.split('/').slice(0, -1).join('/') : '.');
+const palette = ['#D9F76F','#8FD4B0','#7FB4E8','#E8A87C','#C89BE8','#E88C9B','#9BE8D8','#E8D48C'];
+const dirs = [...new Set(data.files.map(dirOf))].sort();
+const colorOf = d => palette[dirs.indexOf(d) % palette.length];
+const elements = [];
+const connected = data.files.filter(f => deg[f]);
+const orphans = data.files.filter(f => !deg[f]);
+for (const f of connected) {
+  elements.push({ data: { id: f, label: f.split('/').pop(), dir: dirOf(f),
+                          deg: deg[f] || 0, color: colorOf(dirOf(f)) } });
 }
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  for (const l of links){
-    const lit = hover && (l.s === hover || l.t === hover);
-    ctx.strokeStyle = lit ? 'rgba(217,247,111,0.85)' : 'rgba(120,140,90,0.18)';
-    ctx.lineWidth = lit ? 1.6 : 0.6;
-    ctx.beginPath(); ctx.moveTo(l.s.x,l.s.y); ctx.lineTo(l.t.x,l.t.y); ctx.stroke();
-  }
-  for (const n of nodes){
-    const r = 2.5 + Math.min(7, n.d);
-    const active = n.on && (!hover || n === hover || links.some(l => (l.s===hover&&l.t===n)||(l.t===hover&&l.s===n)));
-    ctx.fillStyle = active ? '#D9F76F' : 'rgba(150,170,120,0.25)';
-    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,6.283); ctx.fill();
-    if (hover === n || (n.d > 6 && !hover)){
-      ctx.fillStyle = '#C8D6B0'; ctx.font = '11px ui-monospace,Menlo,monospace';
-      ctx.fillText(n.id.split('/').pop(), n.x + r + 4, n.y + 3);
-    }
+for (const [a, b] of data.edges) {
+  if (deg[a] && deg[b]) {
+    elements.push({ data: { id: a + '->' + b, source: a, target: b } });
   }
 }
-canvas.addEventListener('mousemove', e => {
-  const mx=e.clientX, my=e.clientY-120; hover=null; let best=1e9;
-  for (const n of nodes){ const d=(n.x-mx)**2+(n.y-my)**2; if (d<400 && d<best){best=d; hover=n;} }
-  document.getElementById('info').textContent = hover ? hover.id + '  (' + hover.d + ' links)' : '';
+const LAYOUTS = {
+  layers: { name: 'breadthfirst', directed: true, spacingFactor: 1.5, padding: 60,
+            avoidOverlap: true, animate: false, grid: false },
+  organic: { name: 'cose', animate: false, nodeRepulsion: 60000, idealEdgeLength: 180,
+             nodeOverlap: 60, gravity: 0.2, numIter: 1500, padding: 60,
+             componentSpacing: 260, coolingFactor: 0.95 },
+  circle: { name: 'concentric', concentric: n => n.data('deg'), levelWidth: () => 2,
+            minNodeSpacing: 40, padding: 60, animate: false },
+};
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements,
+  wheelSensitivity: 0.25,
+  style: [
+    { selector: 'node', style: {
+        'background-color': 'data(color)',
+        'width': 'mapData(deg, 0, 20, 14, 48)',
+        'height': 'mapData(deg, 0, 20, 14, 48)',
+        'label': '',
+        'font-size': 10,
+        'font-family': 'ui-monospace, Menlo, monospace',
+        'color': '#E8F0D8',
+        'text-valign': 'bottom',
+        'text-margin-y': 4,
+        'text-background-color': '#0B0D08',
+        'text-background-opacity': 0.85,
+        'text-background-padding': 3,
+        'text-background-shape': 'roundrectangle',
+        'border-width': 0,
+        'z-index': 1,
+      } },
+    { selector: 'node.labelled', style: { 'label': 'data(label)', 'z-index': 50 } },
+    { selector: 'edge', style: {
+        'width': 1.6,
+        'line-color': 'rgba(183,217,106,0.5)',
+        'target-arrow-color': '#B7D96A',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 1.5,
+        'curve-style': 'taxi',
+        'taxi-direction': 'downward',
+        'taxi-turn': '40%',
+        'taxi-turn-min-distance': 12,
+      } },
+    { selector: '.dim', style: { 'opacity': 0.08, 'text-opacity': 0 } },
+    { selector: '.hit', style: { 'border-width': 3, 'border-color': '#FFFFFF' } },
+    { selector: 'node.focus', style: {
+        'border-width': 3, 'border-color': '#D9F76F', 'font-size': 12, 'z-index': 99 } },
+    { selector: 'edge.focus', style: {
+        'line-color': '#D9F76F', 'target-arrow-color': '#D9F76F', 'width': 2.5, 'z-index': 99 } },
+  ],
+  layout: LAYOUTS.layers,
 });
+const info = document.getElementById('info');
+function relabel() {
+  const zoom = cy.zoom();
+  const budget = cy.nodes().length <= 60 ? 999 : (zoom > 1.2 ? 999 : zoom > 0.7 ? 45 : 20);
+  const ranked = cy.nodes().sort((a, b) => b.data('deg') - a.data('deg'));
+  cy.nodes().removeClass('labelled');
+  ranked.slice(0, budget).forEach(n => n.addClass('labelled'));
+  cy.nodes('.focus, .hit').addClass('labelled');
+}
+cy.on('zoom', relabel);
+function clearFocus() {
+  cy.elements().removeClass('focus').removeClass('dim');
+  info.textContent = 'click a file to trace its dependencies';
+  relabel();
+}
+cy.on('tap', 'node', evt => {
+  const n = evt.target;
+  const out = n.outgoers();
+  const inc = n.incomers();
+  cy.elements().addClass('dim').removeClass('focus');
+  n.removeClass('dim').addClass('focus').addClass('labelled');
+  out.union(inc).removeClass('dim').addClass('focus');
+  out.union(inc).nodes().addClass('labelled');
+  const imports = n.outgoers('node').map(x => x.id());
+  const importedBy = n.incomers('node').map(x => x.id());
+  info.innerHTML = '<b>' + n.id() + '</b>  imports ' + imports.length +
+    ', imported by ' + importedBy.length +
+    (imports.length ? '<br><span class="muted">imports: ' + imports.slice(0, 8).join(', ') + '</span>' : '') +
+    (importedBy.length ? '<br><span class="muted">imported by: ' + importedBy.slice(0, 8).join(', ') + '</span>' : '');
+});
+cy.on('tap', evt => { if (evt.target === cy) clearFocus(); });
 document.getElementById('q').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase();
-  for (const n of nodes) n.on = !q || n.id.toLowerCase().includes(q);
+  cy.nodes().removeClass('hit');
+  if (!q) { clearFocus(); return; }
+  const hits = cy.nodes().filter(n => n.id().toLowerCase().includes(q));
+  cy.elements().addClass('dim');
+  cy.nodes().removeClass('labelled');
+  hits.removeClass('dim').addClass('hit').addClass('labelled');
+  hits.connectedEdges().removeClass('dim');
+  hits.neighborhood('node').removeClass('dim');
+  info.textContent = hits.length + ' files match "' + q + '"';
+  if (hits.length) cy.animate({ fit: { eles: hits, padding: 80 } }, { duration: 300 });
 });
-step();
+document.getElementById('fit').addEventListener('click', () => { clearFocus(); cy.fit(undefined, 40); });
+document.getElementById('relayout').addEventListener('change', e => {
+  const mode = e.target.value;
+  const l = LAYOUTS[mode] || LAYOUTS.layers;
+  cy.style().selector('edge').style({
+    'curve-style': mode === 'layers' ? 'taxi' : 'bezier',
+  }).update();
+  cy.layout(Object.assign({}, l, { animate: true })).run();
+  setTimeout(() => { cy.fit(undefined, 60); relabel(); }, 400);
+});
+document.getElementById('count').textContent =
+  connected.length + ' connected files, ' + orphans.length + ' with no imports (hidden)';
+cy.ready(() => { cy.fit(undefined, 60); relabel(); });
+clearFocus();
 """
 
 
@@ -289,13 +375,31 @@ def cmd_topology(argv):
     if not files:
         print("no index for this repo; run: xyra-context index <path>", file=sys.stderr)
         return 1
-    payload = json.dumps({"files": files[:900], "edges": [list(e) for e in edges][:3000]})
+    linked = {f for e in edges for f in e}
+    ranked = sorted(files, key=lambda f: (f not in linked, f))
+    keep = set(ranked[:700]) | linked
+    files = [f for f in files if f in keep]
+    edges = [e for e in edges if e[0] in keep and e[1] in keep]
+    try:
+        lib = vendor_script("cytoscape.min.js", CYTOSCAPE_URL)
+    except Exception as e:
+        print(f"could not load the graph library: {e}", file=sys.stderr)
+        return 1
+    payload = json.dumps({"files": files, "edges": [list(e) for e in edges]})
+    ctl = ("background:#11150D;border:1px solid #1E2418;color:#E8F0D8;"
+           "padding:6px 10px;border-radius:6px;cursor:pointer")
+    controls = (f"<input id='q' placeholder='filter files' style='margin-left:auto;{ctl}'>"
+                f"<select id='relayout' style='{ctl}'>"
+                "<option value='layers'>Layered</option>"
+                "<option value='organic'>Organic</option>"
+                "<option value='circle'>Concentric</option></select>"
+                f"<button id='fit' style='{ctl}'>Fit</button>")
     body = (f"<header><h1>Topology</h1><span class='sub'>{html.escape(root)} · "
-            f"{len(files)} files, {len(edges)} import links</span>"
-            "<input id='q' placeholder='filter files' style='margin-left:auto;background:#11150D;"
-            "border:1px solid #1E2418;color:#E8F0D8;padding:6px 10px;border-radius:6px'></header>"
-            "<div class='legend' id='info'>hover a node to light up what it imports</div>"
-            "<canvas id='c'></canvas>"
+            f"{len(edges)} import links</span>{controls}</header>"
+            "<div class='legend'><span id='count'></span> · "
+            "<span id='info'>click a file to trace its dependencies</span></div>"
+            "<div id='cy' style='width:100vw;height:calc(100vh - 130px)'></div>"
+            f"<script>{lib}</script>"
             f"<script>{TOPOLOGY_JS.replace('__DATA__', payload)}</script>")
     path = write_view("topology.html", page("Xyra topology", body))
     open_view(path)

@@ -153,9 +153,10 @@ class GraphTest(unittest.TestCase):
             "rs/src/engine.rs": "pub fn spin() {}\n",
         })
         self.addCleanup(shutil.rmtree, self.repo, True)
-        self.addCleanup(shutil.rmtree, xyra_context.CACHE_DIR, True)
         self._old_cache = xyra_context.CACHE_DIR
-        xyra_context.CACHE_DIR = tempfile.mkdtemp(prefix="xyra-test-cache-")
+        self._tmp_cache = tempfile.mkdtemp(prefix="xyra-test-cache-")
+        xyra_context.CACHE_DIR = self._tmp_cache
+        self.addCleanup(shutil.rmtree, self._tmp_cache, True)
         self.addCleanup(setattr, xyra_context, "CACHE_DIR", self._old_cache)
         self._old_embed = xyra_context.embed
         xyra_context.embed = lambda texts: (_ for _ in ()).throw(RuntimeError("no ollama"))

@@ -163,10 +163,21 @@ def resolve_spec(rel, tagged, files):
                 return c
     elif kind == "py":
         mod = spec.replace(".", "/")
-        for prefix in ("", "src/"):
+        prefixes = ["", "src/"]
+        if base:
+            prefixes.insert(0, base + "/")
+            parent = os.path.dirname(base)
+            while parent:
+                prefixes.append(parent + "/")
+                parent = os.path.dirname(parent)
+        for prefix in prefixes:
             for c in (f"{prefix}{mod}.py", f"{prefix}{mod}/__init__.py"):
                 if c in files:
                     return c
+        tail = mod.split("/")[-1]
+        matches = [f for f in files if f.endswith(f"/{tail}.py") or f == f"{tail}.py"]
+        if len(matches) == 1:
+            return matches[0]
     elif kind == "rsmod":
         for c in (f"{base}/{spec}.rs", f"{base}/{spec}/mod.rs"):
             c = c.lstrip("/")
