@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -267,3 +268,119 @@ class McpSurfaceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TerminalDisciplineTest(unittest.TestCase):
+    def test_agents_md_bans_interactive_commands(self):
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "settings", "AGENTS.md"), encoding="utf-8") as f:
+            text = f.read()
+        for needle in ("vercel --yes", "never run watch modes", "vercel login"):
+            self.assertIn(needle.lower(), text.lower())
+
+
+class QaScoringTest(unittest.TestCase):
+    def test_dedup_and_severity_order(self):
+        events = [
+            {"type": "console_error", "detail": "404 missing.js", "url": "/"},
+            {"type": "console_error", "detail": "404 missing.js", "url": "/"},
+            {"type": "page_error", "detail": "null is not an object", "url": "/a"},
+            {"type": "dialog", "detail": "confirm?", "url": "/a"},
+            {"type": "noise", "detail": "ignored", "url": "/"},
+        ]
+        scored = xyra_tools.score_events(events)
+        self.assertEqual(scored[0]["severity"], "high")
+        self.assertEqual(scored[0]["type"], "page_error")
+        console = next(d for d in scored if d["type"] == "console_error")
+        self.assertEqual(console["count"], 2)
+        self.assertNotIn("noise", [d["type"] for d in scored])
+
+    def test_report_markdown_includes_pages_and_a11y(self):
+        report = {"steps": 12, "pagesVisited": 2, "pages": [
+            {"url": "http://x/", "loadMs": 120, "clickable": 4, "clicked": 3,
+             "a11y": {"missingAlt": 2, "unlabeledInputs": 1}}]}
+        md = xyra_tools.qa_report_md("http://x/", report, xyra_tools.score_events([]))
+        self.assertIn("missingAlt", md)
+        self.assertIn("load 120ms", md)
+
+
+class VisionProviderTest(unittest.TestCase):
+    def test_provider_selection(self):
+        os.environ["XYRA_VISION_PROVIDER"] = "ollama"
+        self.addCleanup(os.environ.pop, "XYRA_VISION_PROVIDER", None)
+        self.assertEqual(xyra_tools.vision_provider(), "ollama")
+        os.environ["XYRA_VISION_PROVIDER"] = "grok"
+        self.assertEqual(xyra_tools.vision_provider(), "grok")
+
+    def test_extract_json_from_noisy_output(self):
+        out = 'thinking...\n{"matches": true, "issues": []}\ndone'
+        self.assertEqual(xyra_tools.extract_json(out)["matches"], True)
+        self.assertIsNone(xyra_tools.extract_json("no json here"))
+
+
+class FleetConnectTest(unittest.TestCase):
+    def test_selection_parsing(self):
+        self.assertEqual(xyra_tools.parse_selection("1,3-5", 10), [1, 3, 4, 5])
+        self.assertEqual(xyra_tools.parse_selection("2, 2 ,9", 5), [2])
+
+    def test_role_guessing(self):
+        self.assertEqual(xyra_tools.guess_role("cortex-api"), "backend")
+        self.assertEqual(xyra_tools.guess_role("wienerlog-dashboard"), "frontend")
+        self.assertEqual(xyra_tools.guess_role("infra-terraform"), "infra")
+
+    def test_connect_writes_manifest(self):
+        repo_dir = tempfile.mkdtemp(prefix="xyra-test-clone-")
+        self.addCleanup(shutil.rmtree, repo_dir, True)
+        os.makedirs(os.path.join(repo_dir, "demo-api"))
+        listing = json.dumps([{"nameWithOwner": "acme/demo-api", "description": "d"}])
+        xyra_tools.RUNNER = ScriptedRunner([
+            (lambda a: a[:2] == ["gh", "repo"], (0, listing)),
+        ])
+        self.addCleanup(setattr, xyra_tools, "RUNNER", xyra_tools.run_cmd)
+        cwd = os.getcwd()
+        work = tempfile.mkdtemp(prefix="xyra-test-cwd-")
+        self.addCleanup(shutil.rmtree, work, True)
+        os.chdir(work)
+        self.addCleanup(os.chdir, cwd)
+        res = xyra_tools.fleet_connect(base_dir=repo_dir, log=lambda *a: None,
+                                       ask=lambda *_: "1")
+        self.assertTrue(os.path.exists(res["manifest"]))
+        self.assertEqual(res["repos"][0]["role"], "backend")
+
+
+class ViewsTest(unittest.TestCase):
+    def setUp(self):
+        import xyra_bus
+        import xyra_views
+        self.bus, self.views = xyra_bus, xyra_views
+
+    def test_event_roles(self):
+        self.assertEqual(self.views.classify({"event": "lens_review"}), "Reviewer")
+        self.assertEqual(self.views.classify({"event": "sandbox_verify"}), "Sandbox")
+        self.assertEqual(self.views.classify({"event": "run_start"}), "Router")
+
+    def test_hud_renders_events(self):
+        page = self.views.hud_html([
+            {"ts": time.time(), "event": "build_done", "vendor": "grok"},
+            {"ts": time.time(), "event": "verdict", "decision": "approved"},
+        ])
+        self.assertIn("Coder", page)
+        self.assertIn("Router", page)
+        self.assertIn("build_done", page)
+
+    def test_secops_patterns_catch_real_issues(self):
+        root = tempfile.mkdtemp(prefix="xyra-test-sec-")
+        self.addCleanup(shutil.rmtree, root, True)
+        with open(os.path.join(root, "bad.ts"), "w") as f:
+            f.write('const apiKey = "sk_live_ABCDEFGH12345678";\neval(userInput);\n')
+        found = self.views.scan_paths(root, ["bad.ts"])
+        labels = {f["label"] for f in found}
+        self.assertIn("hardcoded credential", labels)
+        self.assertIn("eval on dynamic input", labels)
+
+    def test_journal_roundtrip(self):
+        root = tempfile.mkdtemp(prefix="xyra-test-journal-")
+        self.addCleanup(shutil.rmtree, root, True)
+        self.bus.record_decision(root, "architecture", "chose context api")
+        entries = self.bus.read_journal(root)
+        self.assertEqual(entries[-1]["summary"], "chose context api")

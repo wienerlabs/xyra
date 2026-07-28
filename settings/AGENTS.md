@@ -22,6 +22,14 @@ Respond to the user in Turkish. Keep explanations, summaries and conversation in
 - Before writing something new, search for an existing solution to adopt or port. Prefer battle-tested libraries over hand-rolled utilities.
 - Keep diffs minimal and scoped. Do not reformat or rename code the task does not require.
 
+## Terminal discipline (never hang the thread)
+The panel terminal waits for command exit; a command that prompts or never exits freezes the whole thread. Hard rules:
+- Never run a command that can ask an interactive question. Always pass the non-interactive flags: `vercel --yes` (plus `vercel link --yes` once per project), `npx --yes`, `gh --yes` variants, `npm init -y`. If a CLI has no non-interactive mode, do not run it; tell the user to run it themselves.
+- Never run watch modes or servers in the foreground: no `next dev`, `vite`, `vercel dev`, `jest --watch` as a blocking command. Start servers detached (`nohup <cmd> > /tmp/dev.log 2>&1 &`) and read the log file instead, or ask the user to start the server.
+- Never start an interactive login (`vercel login`, `gh auth login`, `aws configure`) in the panel. Ask the user to complete logins in their own terminal once; then use the authenticated CLI non-interactively.
+- Deploys: `vercel --yes --prod` on a linked project. If the project is not linked, run `vercel link --yes` first; if that still requires input, hand it to the user.
+- If a command has been running with no output for a long time, kill it and rethink instead of waiting.
+
 ## Autonomy tools (prove before you present)
 - Before presenting any non-trivial code change, call the `sandbox_verify` tool (xyra-tools MCP). It runs the repository's tests in an isolated snapshot of your uncommitted changes. Only present code that passed; if it fails, fix and verify again first.
 - After any frontend or styling change with a reachable page, call `ui_check` with the page URL and what it should look like. Trust the screenshot verdict over your assumption. When a design mockup exists, use `ui_compare` against it.

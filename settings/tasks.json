@@ -85,5 +85,90 @@
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "use_new_terminal": true
+  },
+  {
+    "label": "Xyra: agent orchestration HUD",
+    "command": "xyra-views",
+    "args": [
+      "hud"
+    ],
+    "reveal": "never",
+    "hide": "always"
+  },
+  {
+    "label": "Xyra: context x-ray",
+    "command": "xyra-views",
+    "args": [
+      "xray",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "never",
+    "hide": "always"
+  },
+  {
+    "label": "Xyra: topology map",
+    "command": "xyra-views",
+    "args": [
+      "topology",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "never",
+    "hide": "always"
+  },
+  {
+    "label": "Xyra: time travel",
+    "command": "xyra-views",
+    "args": [
+      "timeline",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "never",
+    "hide": "always"
+  },
+  {
+    "label": "Xyra: security and cost",
+    "command": "xyra-views",
+    "args": [
+      "secops",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Xyra: decision cockpit",
+    "command": "xyra-views",
+    "args": [
+      "cockpit",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "never",
+    "hide": "always"
+  },
+  {
+    "label": "Xyra: connect fleet repos",
+    "command": "xyra-fleet",
+    "args": [
+      "connect"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Xyra: verify in sandbox",
+    "command": "xyra-sandbox",
+    "args": [
+      "verify"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Xyra: QA sweep",
+    "command": "xyra-qa",
+    "args": [
+      "run",
+      "http://localhost:3000",
+      "--seconds",
+      "90"
+    ],
+    "reveal": "always"
   }
 ]

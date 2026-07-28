@@ -117,7 +117,11 @@
         "agent",
         "stdio"
       ],
-      "env": {}
+      "env": {
+        "CI": "1",
+        "NO_UPDATE_NOTIFIER": "1",
+        "ADBLOCK": "1"
+      }
     },
     "Claude Code": {
       "type": "custom",
@@ -126,7 +130,11 @@
         "-y",
         "@zed-industries/claude-code-acp"
       ],
-      "env": {}
+      "env": {
+        "CI": "1",
+        "NO_UPDATE_NOTIFIER": "1",
+        "ADBLOCK": "1"
+      }
     }
   },
   "context_servers": {

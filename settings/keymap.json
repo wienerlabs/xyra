@@ -28,7 +28,49 @@
       "cmd-alt-k": [
         "task::Spawn",
         {
-          "task_name": "Council: review my changes with a rival vendor"
+          "task_name": "Xyra: decision cockpit"
+        }
+      ],
+      "cmd-alt-a": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: agent orchestration HUD"
+        }
+      ],
+      "cmd-alt-x": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: context x-ray"
+        }
+      ],
+      "cmd-alt-m": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: topology map"
+        }
+      ],
+      "cmd-alt-h": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: time travel"
+        }
+      ],
+      "cmd-alt-s": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: security and cost"
+        }
+      ],
+      "cmd-alt-f": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: connect fleet repos"
+        }
+      ],
+      "cmd-alt-v": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: verify in sandbox"
         }
       ]
     }

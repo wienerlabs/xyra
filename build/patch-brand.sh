@@ -65,6 +65,7 @@ done
 "$PY" "$REPO_DIR/build/patch-ui-scale.py" "$SRC"
 "$PY" "$REPO_DIR/build/patch-money-rain.py" "$SRC"
 "$PY" "$REPO_DIR/build/patch-ui-labels.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-xyra-panel-buttons.py" "$SRC"
 
 if [ -f "$SRC/script/bundle-windows.ps1" ]; then
   PS1_FILE="$SRC/script/bundle-windows.ps1"

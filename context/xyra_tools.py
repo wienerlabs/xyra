@@ -268,7 +268,39 @@ def pick_vision_model():
         "no vision-capable Ollama model found; set XYRA_VISION_MODEL or pull one")
 
 
-def vlm_verdict(prompt, image_paths, timeout=600):
+def extract_json(text):
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def grok_vision(prompt, image_paths, timeout=300):
+    workdir = tempfile.mkdtemp(prefix="xyra-vision-grok-")
+    names = []
+    for p in image_paths:
+        dst = os.path.join(workdir, os.path.basename(p))
+        shutil.copy2(p, dst)
+        names.append(os.path.basename(p))
+    full = (
+        prompt
+        + "\nInspect these image files in the current directory with your vision "
+          "capability, in this order: " + ", ".join(names)
+        + "\nReply with ONLY the JSON object."
+    )
+    code, out = RUNNER(["grok", "--minimal", "--disable-web-search", "-p", full],
+                       cwd=workdir, timeout=timeout)
+    if code != 0:
+        raise RuntimeError(f"grok vision failed: {tail(out, 6)}")
+    parsed = extract_json(out)
+    return parsed if parsed is not None else {"raw": out.strip()[-1500:]}
+
+
+def ollama_vision(prompt, image_paths, timeout=600):
     model = pick_vision_model()
     images = []
     for p in image_paths:
@@ -282,9 +314,27 @@ def vlm_verdict(prompt, image_paths, timeout=600):
     }, timeout=timeout)
     content = resp.get("message", {}).get("content", "")
     try:
-        return json.loads(content), model
+        return json.loads(content), f"ollama:{model}"
     except json.JSONDecodeError:
-        return {"raw": content}, model
+        return {"raw": content}, f"ollama:{model}"
+
+
+def vision_provider():
+    pref = os.environ.get("XYRA_VISION_PROVIDER", "auto")
+    if pref in ("grok", "ollama"):
+        return pref
+    return "grok" if shutil.which("grok") else "ollama"
+
+
+def vlm_verdict(prompt, image_paths, timeout=600):
+    provider = vision_provider()
+    if provider == "grok":
+        try:
+            return grok_vision(prompt, image_paths, timeout=timeout), "grok"
+        except Exception:
+            if os.environ.get("XYRA_VISION_PROVIDER") == "grok":
+                raise
+    return ollama_vision(prompt, image_paths, timeout=timeout)
 
 
 def build_check_prompt(expectation):
@@ -362,6 +412,76 @@ def load_fleet(manifest=None):
             repos.append({"name": r.get("name", os.path.basename(p)),
                           "path": p, "role": r.get("role", "unknown")})
     return {"manifest": path, "repos": repos}
+
+
+def guess_role(name):
+    n = name.lower()
+    if any(k in n for k in ("api", "back", "server", "service", "core")):
+        return "backend"
+    if any(k in n for k in ("web", "front", "app", "ui", "site", "dashboard", "landing")):
+        return "frontend"
+    if any(k in n for k in ("infra", "deploy", "ops", "terraform", "docker")):
+        return "infra"
+    return "unknown"
+
+
+def parse_selection(choice, upper):
+    idxs = set()
+    for part in choice.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            idxs.update(range(int(a), int(b) + 1))
+        else:
+            idxs.add(int(part))
+    return [i for i in sorted(idxs) if 1 <= i <= upper]
+
+
+def fleet_connect(base_dir=None, log=print, ask=input):
+    code, out = RUNNER(["gh", "repo", "list", "--limit", "100", "--json",
+                        "nameWithOwner,description"], timeout=90)
+    if code != 0:
+        raise RuntimeError(f"gh repo list failed, sign in with gh auth login: {tail(out, 5)}")
+    repos = json.loads(out)
+    if not repos:
+        raise RuntimeError("no repositories visible to gh")
+    log("Your GitHub repositories:")
+    for i, r in enumerate(repos, 1):
+        desc = (r.get("description") or "")[:60]
+        log(f"{i:4}. {r['nameWithOwner']}  {desc}")
+    log("")
+    log("Pick the repos for this fleet by number (comma separated, ranges ok, e.g. 1,3-5):")
+    picked_idx = parse_selection(ask("> ").strip(), len(repos))
+    if not picked_idx:
+        raise RuntimeError("nothing selected")
+    base = os.path.expanduser(base_dir or "~/wiener-fleet")
+    os.makedirs(base, exist_ok=True)
+    entries = []
+    for i in picked_idx:
+        r = repos[i - 1]
+        name = r["nameWithOwner"].split("/")[-1]
+        path = os.path.join(base, name)
+        if not os.path.isdir(path):
+            log(f"cloning {r['nameWithOwner']} into {path}...")
+            code, out = RUNNER(["gh", "repo", "clone", r["nameWithOwner"], path], timeout=900)
+            if code != 0:
+                log(f"clone failed for {r['nameWithOwner']}: {tail(out, 4)}")
+                continue
+        entries.append({"name": name, "path": path, "role": guess_role(name)})
+    if not entries:
+        raise RuntimeError("no repositories available after cloning")
+    os.makedirs(".xyra", exist_ok=True)
+    manifest = os.path.abspath(os.path.join(".xyra", "fleet.json"))
+    with open(manifest, "w", encoding="utf-8") as f:
+        json.dump({"repos": entries}, f, indent=2)
+    log("")
+    log(f"fleet manifest written: {manifest}")
+    for e in entries:
+        log(f"  {e['name']} ({e['role']}): {e['path']}")
+    log("roles are guessed from repo names; edit .xyra/fleet.json to correct them")
+    return {"manifest": manifest, "repos": entries}
 
 
 def iter_search_files(root):
@@ -476,12 +596,55 @@ QA_SCRIPT = r"""
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer-core');
-const url = process.env.QA_URL;
+const startUrl = process.env.QA_URL;
 const seconds = parseInt(process.env.QA_SECONDS || '90', 10);
+const maxPages = parseInt(process.env.QA_PAGES || '6', 10);
 const outDir = process.env.QA_OUT;
+const user = process.env.QA_USER || '';
+const pass = process.env.QA_PASS || '';
 const events = [];
-function record(type, detail) {
-  events.push({ t: Date.now(), type, detail: String(detail).slice(0, 500) });
+const pages = [];
+function record(type, detail, url) {
+  events.push({ t: Date.now(), type, url: String(url || '').slice(0, 200), detail: String(detail).slice(0, 500) });
+}
+function junkFor(kind, step) {
+  const pool = {
+    email: ['not-an-email', 'a@b.c', "x'--@y.z", 'A'.repeat(120) + '@x.io'],
+    number: ['-1e999', '0', '999999999999999999999', '3.14abc'],
+    password: ['', 'a', "' OR 1=1 --", 'P@ss' + 'w'.repeat(200)],
+    url: ['javascript:alert(1)', 'http://', 'not a url'],
+    tel: ['+90abc', '0'.repeat(60), '--'],
+    text: ["' OR 1=1 --", '<img src=x onerror=1>', 'A'.repeat(300), '💥💥💥', '   '],
+  };
+  const arr = pool[kind] || pool.text;
+  return arr[step % arr.length];
+}
+async function a11yAudit(page) {
+  return page.evaluate(() => {
+    const missingAlt = [...document.querySelectorAll('img:not([alt])')].length;
+    const unlabeled = [...document.querySelectorAll('input:not([type=hidden]), textarea, select')]
+      .filter(el => !el.labels?.length && !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby') && !el.getAttribute('placeholder')).length;
+    const emptyButtons = [...document.querySelectorAll('button, [role=button]')]
+      .filter(el => !el.textContent.trim() && !el.getAttribute('aria-label') && !el.querySelector('img[alt]')).length;
+    const noLang = document.documentElement.hasAttribute('lang') ? 0 : 1;
+    const noTitle = document.title ? 0 : 1;
+    return { missingAlt, unlabeledInputs: unlabeled, emptyButtons, noLang, noTitle };
+  }).catch(() => null);
+}
+async function tryLogin(page) {
+  if (!user || !pass) return false;
+  const u = await page.$('input[type=email], input[name*=user i], input[name*=email i], input[type=text]');
+  const p = await page.$('input[type=password]');
+  if (!u || !p) return false;
+  await u.type(user, { delay: 5 }).catch(() => {});
+  await p.type(pass, { delay: 5 }).catch(() => {});
+  const submit = await page.$('button[type=submit], input[type=submit], form button');
+  if (submit) await Promise.all([
+    page.waitForNavigation({ timeout: 10000 }).catch(() => {}),
+    submit.click().catch(() => {}),
+  ]);
+  record('login_attempted', page.url(), page.url());
+  return true;
 }
 (async () => {
   const browser = await puppeteer.launch({
@@ -491,51 +654,116 @@ function record(type, detail) {
   });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
-  page.on('console', m => { if (m.type() === 'error') record('console_error', m.text()); });
-  page.on('pageerror', e => record('page_error', e.message));
-  page.on('requestfailed', r => record('request_failed', r.url() + ' ' + (r.failure() || {}).errorText));
-  page.on('dialog', async d => { record('dialog', d.message()); await d.dismiss().catch(() => {}); });
-  const origin = new URL(url).origin;
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 }).catch(e => record('goto_failed', e.message));
-  const junk = ["' OR 1=1 --", 'A'.repeat(300), '💥<script>1</script>', '-1e999', '   '];
+  page.on('console', m => { if (m.type() === 'error') record('console_error', m.text(), page.url()); });
+  page.on('pageerror', e => record('page_error', e.message, page.url()));
+  page.on('requestfailed', r => record('request_failed', r.url() + ' :: ' + ((r.failure() || {}).errorText || ''), page.url()));
+  page.on('response', r => { if (r.status() >= 500) record('http_5xx', r.status() + ' ' + r.url(), page.url()); });
+  page.on('dialog', async d => { record('dialog', d.message(), page.url()); await d.dismiss().catch(() => {}); });
+  const origin = new URL(startUrl).origin;
+  const queue = [startUrl];
+  const visited = new Set();
   const deadline = Date.now() + seconds * 1000;
   let step = 0;
-  while (Date.now() < deadline) {
-    step += 1;
-    try {
-      const inputs = await page.$$('input:not([type=hidden]), textarea');
-      for (let i = 0; i < inputs.length && i < 6; i++) {
-        const v = junk[(step + i) % junk.length];
-        await inputs[i].click({ clickCount: 3 }).catch(() => {});
-        await inputs[i].type(v, { delay: 5 }).catch(() => {});
-      }
-      const clickables = await page.$$('button, a[href], [role=button], input[type=submit]');
-      if (clickables.length) {
-        const el = clickables[step % clickables.length];
-        const href = await page.evaluate(e => e.getAttribute && e.getAttribute('href'), el).catch(() => null);
-        if (!href || href.startsWith('#') || href.startsWith('/') || href.startsWith(origin)) {
-          await el.click({ delay: 10 }).catch(e => record('click_error', e.message));
-          if (step % 4 === 0) {
-            await el.click().catch(() => {});
-            await el.click().catch(() => {});
+  let loggedIn = false;
+  while (queue.length && visited.size < maxPages && Date.now() < deadline) {
+    const target = queue.shift();
+    if (visited.has(target)) continue;
+    visited.add(target);
+    const t0 = Date.now();
+    await page.goto(target, { waitUntil: 'networkidle2', timeout: 45000 }).catch(e => record('goto_failed', e.message, target));
+    const loadMs = Date.now() - t0;
+    if (!loggedIn) loggedIn = await tryLogin(page);
+    const a11y = await a11yAudit(page);
+    const links = await page.$$eval('a[href]', (as, origin) =>
+      as.map(a => a.href).filter(h => h.startsWith(origin) && !h.includes('#')).slice(0, 30), origin).catch(() => []);
+    for (const l of links) if (!visited.has(l) && queue.length + visited.size < maxPages * 3) queue.push(l);
+    let clicked = 0;
+    let clickable = 0;
+    const pageDeadline = Math.min(deadline, Date.now() + (seconds * 1000) / maxPages);
+    while (Date.now() < pageDeadline) {
+      step += 1;
+      try {
+        const inputs = await page.$$('input:not([type=hidden]), textarea');
+        for (let i = 0; i < inputs.length && i < 8; i++) {
+          const kind = await page.evaluate(el => el.type || 'text', inputs[i]).catch(() => 'text');
+          await inputs[i].click({ clickCount: 3 }).catch(() => {});
+          await inputs[i].type(junkFor(kind, step + i), { delay: 3 }).catch(() => {});
+        }
+        const els = await page.$$('button, a[href], [role=button], input[type=submit]');
+        clickable = Math.max(clickable, els.length);
+        if (els.length) {
+          const el = els[step % els.length];
+          const href = await page.evaluate(e => e.getAttribute && e.getAttribute('href'), el).catch(() => null);
+          if (!href || href.startsWith('#') || href.startsWith('/') || href.startsWith(origin)) {
+            await el.click({ delay: 5 }).catch(e => record('click_error', e.message, page.url()));
+            clicked += 1;
+            if (step % 4 === 0) { await el.click().catch(() => {}); await el.click().catch(() => {}); }
           }
         }
+        if (!page.url().startsWith(origin)) {
+          await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+        }
+        await new Promise(r => setTimeout(r, 200));
+      } catch (e) {
+        record('driver_error', e.message, page.url());
+        await page.screenshot({ path: path.join(outDir, 'error-' + step + '.png') }).catch(() => {});
       }
-      if (step % 7 === 0) await page.goBack({ timeout: 8000 }).catch(() => {});
-      if (!page.url().startsWith(origin)) {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-      }
-      await new Promise(r => setTimeout(r, 250));
-    } catch (e) {
-      record('driver_error', e.message);
-      const shot = path.join(outDir, 'error-' + step + '.png');
-      await page.screenshot({ path: shot }).catch(() => {});
     }
+    pages.push({ url: target, loadMs, a11y, clickable, clicked });
   }
-  fs.writeFileSync(path.join(outDir, 'events.json'), JSON.stringify({ steps: step, events }, null, 2));
+  fs.writeFileSync(path.join(outDir, 'events.json'),
+    JSON.stringify({ steps: step, pagesVisited: visited.size, pages, events }, null, 2));
   await browser.close();
 })();
 """
+
+
+SEVERITY = {
+    "page_error": "high",
+    "http_5xx": "high",
+    "console_error": "medium",
+    "request_failed": "medium",
+    "dialog": "low",
+    "goto_failed": "high",
+}
+
+
+def score_events(events):
+    seen = {}
+    for e in events:
+        if e["type"] not in SEVERITY:
+            continue
+        key = (e["type"], e["detail"][:120])
+        if key in seen:
+            seen[key]["count"] += 1
+        else:
+            seen[key] = {"type": e["type"], "severity": SEVERITY[e["type"]],
+                         "detail": e["detail"], "url": e.get("url", ""), "count": 1}
+    order = {"high": 0, "medium": 1, "low": 2}
+    return sorted(seen.values(), key=lambda d: (order[d["severity"]], -d["count"]))
+
+
+def qa_report_md(url, report, defects):
+    lines = [f"# QA report: {url}", ""]
+    lines.append(f"Pages visited: {report.get('pagesVisited', 1)}, interaction steps: {report.get('steps', 0)}")
+    lines.append("")
+    for p in report.get("pages", []):
+        a11y = p.get("a11y") or {}
+        a11y_total = sum(v for v in a11y.values() if isinstance(v, int))
+        lines.append(f"- {p['url']}  load {p['loadMs']}ms, clicked {p['clicked']}/{p['clickable']}, a11y issues {a11y_total}")
+        for k, v in a11y.items():
+            if v:
+                lines.append(f"    - a11y: {k} = {v}")
+    lines.append("")
+    if defects:
+        lines.append("## Defects")
+        for d in defects:
+            lines.append(f"- [{d['severity']}] {d['type']} x{d['count']}: {d['detail'][:200]}")
+            if d.get("url"):
+                lines.append(f"    at {d['url']}")
+    else:
+        lines.append("No defects observed.")
+    return "\n".join(lines) + "\n"
 
 
 def qa_prepare_runtime():
@@ -565,7 +793,8 @@ def qa_summarize(report, vendor="grok"):
     return out.strip() if code == 0 else None
 
 
-def qa_run(url, seconds=90, out_dir=None, summarize=True, vendor="grok"):
+def qa_run(url, seconds=90, out_dir=None, summarize=True, vendor="grok", pages=6,
+           user=None, password=None):
     chrome = chrome_path()
     if not chrome:
         return {"ok": False, "error": "no Chrome/Chromium found; install one or set XYRA_CHROME"}
@@ -577,25 +806,36 @@ def qa_run(url, seconds=90, out_dir=None, summarize=True, vendor="grok"):
     script = os.path.join(runtime, "qa_driver.js")
     with open(script, "w", encoding="utf-8") as f:
         f.write(QA_SCRIPT)
-    env = dict(os.environ, QA_URL=url, QA_SECONDS=str(seconds),
-               QA_OUT=out_dir, QA_CHROME=chrome)
-    code, out = RUNNER(["node", script], cwd=runtime, timeout=seconds + 120, env=env)
+    env = dict(os.environ, QA_URL=url, QA_SECONDS=str(seconds), QA_PAGES=str(pages),
+               QA_OUT=out_dir, QA_CHROME=chrome,
+               QA_USER=user or os.environ.get("XYRA_QA_USER", ""),
+               QA_PASS=password or os.environ.get("XYRA_QA_PASS", ""))
+    code, out = RUNNER(["node", script], cwd=runtime, timeout=seconds + 180, env=env)
     events_path = os.path.join(out_dir, "events.json")
     if not os.path.exists(events_path):
         return {"ok": False, "error": f"qa driver produced no events: {tail(out, 12)}"}
     with open(events_path, "r", encoding="utf-8") as f:
         report = json.load(f)
-    defects = [e for e in report["events"]
-               if e["type"] in ("console_error", "page_error", "request_failed")]
+    defects = score_events(report.get("events", []))
+    md = qa_report_md(url, report, defects)
+    with open(os.path.join(out_dir, "report.md"), "w", encoding="utf-8") as f:
+        f.write(md)
+    a11y_total = sum(sum(v for v in (p.get("a11y") or {}).values() if isinstance(v, int))
+                     for p in report.get("pages", []))
     result = {"ok": True, "url": url, "steps": report.get("steps"),
-              "defect_count": len(defects), "defects": defects[:80],
-              "report_dir": out_dir}
+              "pages_visited": report.get("pagesVisited", 1),
+              "pages": report.get("pages", []),
+              "accessibility_issues": a11y_total,
+              "defect_count": len(defects),
+              "high": sum(1 for d in defects if d["severity"] == "high"),
+              "defects": defects[:60], "report_dir": out_dir,
+              "report_md": os.path.join(out_dir, "report.md")}
     if summarize and defects:
         summary = qa_summarize(result, vendor=vendor)
         if summary:
             result["summary"] = summary
-            with open(os.path.join(out_dir, "report.md"), "w", encoding="utf-8") as f:
-                f.write(summary + "\n")
+            with open(os.path.join(out_dir, "report.md"), "a", encoding="utf-8") as f:
+                f.write("\n## Analysis\n\n" + summary + "\n")
     return result
 
 
@@ -630,10 +870,11 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {
          "term": {"type": "string"}}, "required": ["term"]}},
     {"name": "qa_run",
-     "description": "Drive a running web app like a hostile user for a short budget: fill forms with junk, click rapidly, navigate randomly, and collect console errors, page errors and failed requests into a defect report.",
+     "description": "Drive a running web app like a hostile user: crawl same-origin pages, fill every input with type-aware junk (bad emails, huge strings, injection strings), click rapidly, and collect console errors, page errors, HTTP 5xx, failed requests, accessibility problems and load timings into a ranked defect report.",
      "inputSchema": {"type": "object", "properties": {
          "url": {"type": "string"},
-         "seconds": {"type": "integer", "description": "Time budget, max 120 for tool calls"}},
+         "seconds": {"type": "integer", "description": "Time budget, max 180 for tool calls"},
+         "pages": {"type": "integer", "description": "How many same-origin pages to crawl (default 4)"}},
          "required": ["url"]}},
 ]
 
@@ -681,13 +922,13 @@ def tool_call(name, args):
         res = fleet_impact(args["term"])
         return json.dumps(res["summary"], indent=2) + "\n\n" + json.dumps(res["impact"], indent=2)[:6000]
     if name == "qa_run":
-        seconds = min(int(args.get("seconds", 60)), 120)
-        res = qa_run(args["url"], seconds=seconds, summarize=False)
+        seconds = min(int(args.get("seconds", 60)), 180)
+        res = qa_run(args["url"], seconds=seconds, pages=int(args.get("pages", 4)),
+                     summarize=False)
         if not res.get("ok"):
             return f"error: {res.get('error')}"
-        head = f"steps: {res['steps']}, defects: {res['defect_count']}, report: {res['report_dir']}"
-        sample = "\n".join(f"  [{d['type']}] {d['detail']}" for d in res["defects"][:15])
-        return head + ("\n" + sample if sample else "\nno defects observed")
+        with open(res["report_md"], "r", encoding="utf-8") as f:
+            return f.read()[:8000]
     raise ValueError(f"unknown tool: {name}")
 
 
@@ -776,6 +1017,9 @@ def main():
         sub = rest[0] if rest else "list"
         if sub == "list":
             cli_out(load_fleet())
+        elif sub == "connect":
+            base = next((rest[i + 1] for i, a in enumerate(rest) if a == "--dir"), None)
+            fleet_connect(base_dir=base)
         elif sub == "init":
             os.makedirs(".xyra", exist_ok=True)
             path = os.path.join(".xyra", "fleet.json")
