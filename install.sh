@@ -97,8 +97,9 @@ if [ -d "$XYRA_APP" ]; then
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/xyra"
   ln -sfn "$XYRA_APP/Contents/MacOS/cli" "$BREW_BIN/zed"
 fi
-install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$REPO_DIR/bin/xyra-watch" "$REPO_DIR/bin/xyra-grok-keepalive" "$BREW_BIN/"
+install -m 0755 "$REPO_DIR/bin/xyra-fix" "$REPO_DIR/bin/xyra-doctor" "$REPO_DIR/bin/xyra-council" "$REPO_DIR/bin/xyra-cosmos" "$REPO_DIR/bin/xyra-watch" "$REPO_DIR/bin/xyra-grok-keepalive" "$REPO_DIR/bin/xyra-sandbox" "$REPO_DIR/bin/xyra-vision" "$REPO_DIR/bin/xyra-fleet" "$REPO_DIR/bin/xyra-qa" "$BREW_BIN/"
 install -m 0755 "$REPO_DIR/context/xyra_context.py" "$BREW_BIN/xyra-context"
+install -m 0755 "$REPO_DIR/context/xyra_tools.py" "$BREW_BIN/xyra-tools"
 mkdir -p "$HOME/.xyra"
 rm -rf "$HOME/.xyra/council"
 cp -R "$REPO_DIR/context/council" "$HOME/.xyra/council"
@@ -109,6 +110,7 @@ if command -v ollama >/dev/null 2>&1; then
 fi
 if command -v grok >/dev/null 2>&1; then
   grok mcp add -s user xyra-context "$BREW_BIN/xyra-context" -- mcp >/dev/null 2>&1 || true
+  grok mcp add -s user xyra-tools "$BREW_BIN/xyra-tools" -- mcp >/dev/null 2>&1 || true
 fi
 "$BREW_BIN/xyra-grok-keepalive" install >/dev/null 2>&1 && echo "  grok session keepalive: active (auto-renews sign-in every 2h)" || true
 

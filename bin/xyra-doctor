@@ -46,6 +46,18 @@ else
   warn "grok session keepalive not active, run: xyra-grok-keepalive install"
 fi
 
+if command -v xyra-tools >/dev/null 2>&1; then
+  ok "autonomy tools installed (sandbox, vision, fleet, qa)"
+else
+  warn "xyra-tools missing, rerun install.sh"
+fi
+
+if [ -e "/Applications/Google Chrome.app" ] || [ -e "/Applications/Chromium.app" ] || command -v chromium >/dev/null 2>&1; then
+  ok "chrome available for the vision and qa agents"
+else
+  warn "no Chrome or Chromium found (xyra-vision and xyra-qa need one)"
+fi
+
 if command -v claude >/dev/null 2>&1; then ok "claude CLI present"; else warn "claude CLI missing (optional)"; fi
 
 ZED_CONFIG_DIR="$HOME/.config/zed"

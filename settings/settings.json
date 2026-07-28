@@ -137,6 +137,14 @@
         "mcp"
       ],
       "env": {}
+    },
+    "xyra-tools": {
+      "source": "custom",
+      "command": "/opt/homebrew/bin/xyra-tools",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
     }
   }
 }

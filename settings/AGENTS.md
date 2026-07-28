@@ -21,3 +21,10 @@ Respond to the user in Turkish. Keep explanations, summaries and conversation in
 ## Working style
 - Before writing something new, search for an existing solution to adopt or port. Prefer battle-tested libraries over hand-rolled utilities.
 - Keep diffs minimal and scoped. Do not reformat or rename code the task does not require.
+
+## Autonomy tools (prove before you present)
+- Before presenting any non-trivial code change, call the `sandbox_verify` tool (xyra-tools MCP). It runs the repository's tests in an isolated snapshot of your uncommitted changes. Only present code that passed; if it fails, fix and verify again first.
+- After any frontend or styling change with a reachable page, call `ui_check` with the page URL and what it should look like. Trust the screenshot verdict over your assumption. When a design mockup exists, use `ui_compare` against it.
+- Before renaming or changing a shared function, type, endpoint or config key, call `code_impact` (xyra-context MCP) and update every file in the returned chain in the same pass.
+- When the project is part of a fleet (.xyra/fleet.json), use `fleet_search` and `fleet_impact` to find cross-repo usages before changing any contract between repositories.
+- After completing a user-facing feature on a running web app, offer to run `qa_run` against it to shake out console errors and broken flows.

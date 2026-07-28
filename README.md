@@ -17,6 +17,18 @@ Other agentic editors are metered clouds tied to one model vendor. Xyra is the o
 
 The flagship is the council: `xyra-council` and its project-scale sibling `xyra-cosmos`. Both are documented below.
 
+## The autonomy engine
+
+Five capabilities that ship as local tools and are exposed to every panel agent over MCP, so the agent uses them on its own:
+
+- **Invisible sandbox** (`xyra-sandbox`): agents prove code before you see it. `sandbox_verify` runs the repo's tests against a snapshot of the uncommitted changes in an isolated git worktree; `xyra-sandbox loop` goes further and lets a fixer model iterate until tests pass, then emits only the proven diff. The editor never presents code that is known broken.
+- **Vision** (`xyra-vision`): after a frontend change the agent renders the page headless, screenshots it and has a local vision model judge layout, alignment and overflow (`ui_check`), or compare the screenshot against a Figma export pixel by concept (`ui_compare`). The agent sees the button it just moved.
+- **Fleet** (`xyra-fleet`): register related repos in `.xyra/fleet.json` and the agent searches and impact-analyzes across all of them at once (`fleet_search`, `fleet_impact`), so an API change lands consistently in backend, frontend and infra in one pass. `xyra-fleet refactor --execute` drives the change through every affected repo sequentially.
+- **Dependency graph** (`xyra-context`): beside the semantic index, a deterministic import graph parsed from the source (TS/JS, Python, Rust). `code_impact` answers "who breaks if I change this" mathematically, with transitive distance, instead of guessing from embeddings. Works even with Ollama off.
+- **QA agent** (`xyra-qa`): drives the running app like a hostile user for a time budget: junk into forms, wrong passwords, rapid clicks, random navigation, while collecting console errors, page errors and failed requests into a defect report an agent can act on.
+
+The agent instructions shipped with Xyra mandate the flow: verify in the sandbox before presenting, look at the UI after changing it, run impact analysis before touching shared contracts.
+
 ## What it installs
 
 `install.sh` ships no binaries; everything is installed from official sources, then layered with the Wiener configuration:
@@ -30,7 +42,7 @@ The flagship is the council: `xyra-council` and its project-scale sibling `xyra-
 - The wiener-conventions, wiener-review, wiener-solana, wiener-ship and prompt-optimizer skills applied in every agent session
 - Editor tasks and shortcuts, house-stack snippets (Zod, Next.js, Anchor), a Turkish-speaking agent via AGENTS.md
 - JetBrains Mono Nerd Font, Cursor keymap, block cursor, Zeta edit predictions
-- The `xyra`, `xyra-fix`, `xyra-doctor` terminal commands
+- The `xyra`, `xyra-fix`, `xyra-doctor`, `xyra-sandbox`, `xyra-vision`, `xyra-fleet`, `xyra-qa` terminal commands
 
 After install, one panel gives you three layers: Grok Build (subscription quota, up to 8 parallel agents), Claude Code (built in), and optional local Ollama models, all reviewing each other through the council.
 
