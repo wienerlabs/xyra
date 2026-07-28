@@ -115,6 +115,11 @@ else
   warn "ollama missing (optional, local models disabled)"
 fi
 
+XYRA_BIN="/Applications/Xyra.app/Contents/MacOS/zed"
+if [ -f "$XYRA_BIN" ] && grep -aq "Yeni Dosya" "$XYRA_BIN" 2>/dev/null; then
+  ok "Turkish UI active (localized build)"
+fi
+
 echo ""
 echo "result: $PASS ok, $WARN warn, $FAIL fail"
 [ "$FAIL" -eq 0 ]

@@ -23,13 +23,22 @@ jobs:
         include:
           - triple: aarch64-apple-darwin
             suffix: AppleSilicon
+            lang: en
           - triple: x86_64-apple-darwin
             suffix: Intel
+            lang: en
+          - triple: aarch64-apple-darwin
+            suffix: AppleSilicon-tr
+            lang: tr
+          - triple: x86_64-apple-darwin
+            suffix: Intel-tr
+            lang: tr
     permissions:
       contents: write
     env:
       ZED_TAG: v1.10.3
       VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      XYRA_LANG: ${{ matrix.lang }}
     steps:
       - name: Checkout xyra
         uses: actions/checkout@v4

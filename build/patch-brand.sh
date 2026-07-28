@@ -67,6 +67,28 @@ done
 "$PY" "$REPO_DIR/build/patch-ui-labels.py" "$SRC"
 "$PY" "$REPO_DIR/build/patch-xyra-panel-buttons.py" "$SRC"
 
+if [ "${XYRA_LOCAL_BUILD:-}" = "1" ]; then
+  "$PY" - "$SRC" <<'PYEOF'
+import re, sys
+p = sys.argv[1] + "/crates/zed/src/main.rs"
+s = open(p, encoding="utf-8").read()
+new = re.sub(
+    r"let should_install_crash_handler = matches!\(.*?!= ReleaseChannel::Dev;",
+    "let should_install_crash_handler = false;",
+    s, count=1, flags=re.S,
+)
+if new != s:
+    open(p, "w", encoding="utf-8").write(new)
+    print("crash handler disabled for local unsigned source build")
+else:
+    print("warning: crash handler pattern not found", file=sys.stderr)
+PYEOF
+fi
+
+if [ -n "${XYRA_LANG:-}" ] && [ "$XYRA_LANG" != "en" ]; then
+  "$PY" "$REPO_DIR/build/translate-strings.py" "$SRC" --lang "$XYRA_LANG" --apply | tail -1
+fi
+
 if [ -f "$SRC/script/bundle-windows.ps1" ]; then
   PS1_FILE="$SRC/script/bundle-windows.ps1"
   sed_i 's/{{2DB0DA96-CA55-49BB-AF4F-64AF36A86712}/{{EF205767-8E1A-429E-BF57-6D266458D92B}/' "$PS1_FILE"

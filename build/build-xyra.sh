@@ -14,6 +14,11 @@ fi
 
 command -v cargo >/dev/null 2>&1 || { echo "error: Rust required (https://rustup.rs)" >&2; exit 1; }
 
+if ! command -v cmake >/dev/null 2>&1; then
+  echo "installing cmake (required by Zed's wasmtime dependency)..."
+  brew install cmake || { echo "error: cmake required (brew install cmake)" >&2; exit 1; }
+fi
+
 if ! pmset -g batt | grep -q "AC Power"; then
   echo "warning: on battery power, the build can take 30-60 minutes. A charger is recommended."
 fi
@@ -25,13 +30,15 @@ git -C "$SRC" checkout -f "$TAG" 2>/dev/null || git -C "$SRC" checkout -f FETCH_
 git -C "$SRC" reset --hard >/dev/null
 git -C "$SRC" clean -fdq
 
-"$REPO_DIR/build/patch-brand.sh" "$SRC"
+XYRA_LOCAL_BUILD=1 "$REPO_DIR/build/patch-brand.sh" "$SRC"
 
 cd "$SRC"
-./script/bundle-mac -l
+STAMP="$(mktemp)"
+./script/bundle-mac -l || echo "warning: bundle-mac exited nonzero (likely the optional DMG licensing step); verifying the .app was still produced"
 
-APP_PATH="$(find "$SRC/target" -maxdepth 4 -name "*.app" -type d 2>/dev/null | head -1)"
-[ -n "$APP_PATH" ] || { echo "error: built .app not found" >&2; exit 1; }
+APP_PATH="$(find "$SRC/target" -maxdepth 4 -name "*.app" -type d -newer "$STAMP" 2>/dev/null | head -1)"
+rm -f "$STAMP"
+[ -n "$APP_PATH" ] || { echo "error: no freshly built .app found (bundle-mac likely failed before packaging)" >&2; exit 1; }
 
 STAGED="$HOME/.cache/xyra/Xyra.app"
 rm -rf "$STAGED"
