@@ -90,7 +90,8 @@
     "label": "Xyra: agent orchestration HUD",
     "command": "xyra-views",
     "args": [
-      "hud"
+      "hud",
+      "$ZED_WORKTREE_ROOT"
     ],
     "reveal": "never",
     "hide": "always"

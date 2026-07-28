@@ -433,4 +433,6 @@ class AttributionTest(unittest.TestCase):
             data = json.load(f)
         for name, server in data["agent_servers"].items():
             self.assertEqual(server["env"].get("XYRA_SESSION"), "1", name)
-            self.assertEqual(server["env"].get("CI"), "1", name)
+        self.assertEqual(data["agent_servers"]["Grok Build"]["env"].get("CI"), "1")
+        self.assertIsNone(data["agent_servers"]["Claude Code"]["env"].get("CI"))
+        self.assertEqual(data["terminal"]["env"].get("XYRA_SESSION"), "1")

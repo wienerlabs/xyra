@@ -185,15 +185,14 @@ Work done through Xyra can be credited to a Xyra identity on GitHub, the way age
 
 Setup is one time:
 
-1. Create a GitHub account for the identity (for example `xyra-labs`) and copy its noreply address from Settings, Emails. It looks like `12345678+xyra-labs@users.noreply.github.com`. The account must exist, otherwise the trailer credits nobody.
-2. Register it and install the hook:
+```bash
+xyra-attribution setup "xyra" 274924993+xyra-agent@users.noreply.github.com
+xyra-attribution status
+```
 
-   ```bash
-   xyra-attribution setup "Xyra" 12345678+xyra-labs@users.noreply.github.com
-   xyra-attribution status
-   ```
+That is the [xyra-agent](https://github.com/xyra-agent) account; point it at your own identity by passing a different name and the noreply address from that account's Settings, Emails page. The account must exist, otherwise the trailer credits nobody.
 
-The hook adds the trailer only when `XYRA_SESSION=1` is set, which the editor sets for its agent servers. Commits you make yourself in a plain terminal stay untouched, and a repository with its own hooks keeps them: the Xyra hook chains to the repo hook before doing anything. Remove it any time with `xyra-attribution uninstall`.
+Every commit made through Xyra carries the trailer: the app tags its own process with `XYRA_SESSION=1`, so agent commits, commits from the integrated terminal and commits from the git panel are all covered. Commits you make in a separate terminal outside the editor stay untouched, and a repository with its own hooks keeps them, because the Xyra hook chains to the repo hook before doing anything. Remove it any time with `xyra-attribution uninstall`.
 
 ## What it installs
 

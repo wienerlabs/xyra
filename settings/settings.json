@@ -32,7 +32,10 @@
   },
   "terminal": {
     "font_family": "JetBrainsMono Nerd Font",
-    "blinking": "off"
+    "blinking": "off",
+    "env": {
+      "XYRA_SESSION": "1"
+    }
   },
   "features": {
     "edit_prediction_provider": "zed"
@@ -132,7 +135,6 @@
         "@zed-industries/claude-code-acp"
       ],
       "env": {
-        "CI": "1",
         "NO_UPDATE_NOTIFIER": "1",
         "ADBLOCK": "1",
         "XYRA_SESSION": "1"

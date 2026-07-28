@@ -61,19 +61,70 @@ def page(title, body, extra_head="", refresh=None):
             f"</head><body>{body}</body></html>")
 
 
-def write_view(name, content):
-    os.makedirs(VIEW_DIR, exist_ok=True)
-    path = os.path.join(VIEW_DIR, name)
+IN_EDITOR = os.environ.get("XYRA_VIEW_TARGET", "editor") != "browser"
+
+
+def project_view_dir(root=None):
+    base = os.path.join(os.path.abspath(root), ".xyra", "views") if root else VIEW_DIR
+    os.makedirs(base, exist_ok=True)
+    return base
+
+
+def write_view(name, content, root=None):
+    base = project_view_dir(root) if root else VIEW_DIR
+    os.makedirs(base, exist_ok=True)
+    path = os.path.join(base, name)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     return path
 
 
-def open_view(path):
+def editor_binary():
+    for cand in ("/opt/homebrew/bin/xyra", "/usr/local/bin/xyra",
+                 os.path.expanduser("~/.local/bin/xyra")):
+        if os.path.exists(cand):
+            return cand
+    return shutil_which("xyra")
+
+
+def shutil_which(name):
+    import shutil
+    return shutil.which(name)
+
+
+def open_view(path, prefer_editor=None):
+    prefer = IN_EDITOR if prefer_editor is None else prefer_editor
+    if prefer:
+        xyra = editor_binary()
+        if xyra:
+            subprocess.run([xyra, path], capture_output=True)
+            return
     if sys.platform == "darwin":
         subprocess.run(["open", path], capture_output=True)
     elif sys.platform.startswith("linux"):
         subprocess.run(["xdg-open", path], capture_output=True)
+
+
+def bar(value, peak, width=24):
+    if peak <= 0:
+        return ""
+    filled = max(1, round(width * value / peak)) if value else 0
+    return "█" * filled + "░" * (width - filled)
+
+
+def md_page(title, subtitle, sections):
+    out = [f"# {title}", "", f"_{subtitle}_", ""]
+    for heading, body in sections:
+        if heading:
+            out.append(f"## {heading}")
+            out.append("")
+        out.append(body.rstrip())
+        out.append("")
+    out.append("---")
+    out.append("")
+    out.append("Rendered by Xyra. Press cmd-shift-v for the formatted view, "
+               "or cmd-k v to open it beside the code.")
+    return "\n".join(out) + "\n"
 
 
 ROLE_OF = {
@@ -123,9 +174,37 @@ def hud_html(events):
     return page("Xyra agents", "".join(parts), refresh=3)
 
 
+def hud_md(events):
+    if not events:
+        return md_page("Agent orchestration", "no activity yet",
+                       [("", "Run xyra-council, xyra-cosmos or xyra-qa and this view fills up.")])
+    lanes = {}
+    for e in events:
+        lanes.setdefault(classify(e), []).append(e)
+    now = time.time()
+    sections = []
+    order = ["Router", "Architect", "Coder", "Reviewer", "Sandbox", "QA", "Vision", "Fleet", "Agent"]
+    for role in order:
+        items = lanes.get(role)
+        if not items:
+            continue
+        rows = ["| event | detail | when |", "|---|---|---|"]
+        for e in items[-12:]:
+            age = max(0, int(now - e.get("ts", now)))
+            fields = {k: v for k, v in e.items() if k not in ("ts", "event", "run")}
+            detail = ", ".join(f"{k}={str(v)[:40]}" for k, v in list(fields.items())[:3]) or "-"
+            rows.append(f"| `{e.get('event','')}` | {detail} | {age}s ago |")
+        sections.append((f"{role} ({len(items)})", "\n".join(rows)))
+    return md_page("Agent orchestration", f"{len(events)} events across {len(lanes)} roles", sections)
+
+
 def cmd_hud(argv):
+    root = os.path.abspath(argv[0]) if argv and not argv[0].startswith("-") else os.getcwd()
     events = xyra_bus.read_events(limit=400)
-    path = write_view("agents.html", hud_html(events))
+    if IN_EDITOR:
+        path = write_view("agents.md", hud_md(events), root)
+    else:
+        path = write_view("agents.html", hud_html(events))
     open_view(path)
     print(path)
 
@@ -201,10 +280,30 @@ def xray_html(root, counts, scanned):
     return page("Xyra context X-ray", body)
 
 
+def xray_md(root, counts, scanned):
+    if not counts:
+        return md_page("Context x-ray", f"{root}",
+                       [("", f"Scanned {scanned} agent sessions and found no references to files "
+                             "in this project. Work with an agent here first.")])
+    top = sorted(counts.items(), key=lambda kv: -kv[1])
+    peak = top[0][1]
+    rows = ["| file | attention | reads |", "|---|---|---|"]
+    for rel, n in top[:60]:
+        rows.append(f"| `{rel}` | `{bar(n, peak)}` | {n} |")
+    note = ("Files at the top dominate the agents' attention. If the wrong file is up there, "
+            "add it to `file_scan_exclusions` in settings.json or to .gitignore.")
+    return md_page("Context x-ray",
+                   f"{root} · {len(counts)} files touched across {scanned} sessions",
+                   [("Attention heatmap", "\n".join(rows)), ("", note)])
+
+
 def cmd_xray(argv):
     root = os.path.abspath(argv[0]) if argv else os.getcwd()
     counts, scanned = session_reads(root)
-    path = write_view("xray.html", xray_html(root, counts, scanned))
+    if IN_EDITOR:
+        path = write_view("xray.md", xray_md(root, counts, scanned), root)
+    else:
+        path = write_view("xray.html", xray_html(root, counts, scanned))
     open_view(path)
     print(path)
 
@@ -369,12 +468,112 @@ clearFocus();
 """
 
 
+def layered_positions(files, edges, width=1400, gap_y=120, gap_x=210):
+    incoming = {f: 0 for f in files}
+    for a, b in edges:
+        if b in incoming:
+            incoming[b] += 1
+    depth = {f: 0 for f in files}
+    for _ in range(6):
+        changed = False
+        for a, b in edges:
+            if a in depth and b in depth and depth[b] < depth[a] + 1:
+                depth[b] = depth[a] + 1
+                changed = True
+        if not changed:
+            break
+    layers = {}
+    for f in files:
+        layers.setdefault(min(depth[f], 8), []).append(f)
+    pos = {}
+    for level in sorted(layers):
+        row = sorted(layers[level])
+        per_row = max(1, min(len(row), int(width / gap_x)))
+        for i, f in enumerate(row):
+            col = i % per_row
+            sub = i // per_row
+            x = 90 + col * gap_x + (30 if sub % 2 else 0)
+            y = 80 + (level * 2 + sub) * gap_y // 2
+            pos[f] = (x, y)
+    return pos
+
+
+def topology_svg(root, files, edges):
+    pos = layered_positions(files, edges)
+    if not pos:
+        return None
+    max_x = max(p[0] for p in pos.values()) + 160
+    max_y = max(p[1] for p in pos.values()) + 90
+    deg = {}
+    for a, b in edges:
+        deg[a] = deg.get(a, 0) + 1
+        deg[b] = deg.get(b, 0) + 1
+    dirs = sorted({(f.rsplit("/", 1)[0] if "/" in f else ".") for f in files})
+    palette = ["#D9F76F", "#8FD4B0", "#7FB4E8", "#E8A87C", "#C89BE8", "#E88C9B", "#9BE8D8"]
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{max_x}" height="{max_y}" '
+           f'viewBox="0 0 {max_x} {max_y}">',
+           f'<rect width="{max_x}" height="{max_y}" fill="#0B0D08"/>',
+           '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+           'markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#B7D96A"/></marker></defs>',
+           f'<text x="24" y="34" fill="#D9F76F" font-family="monospace" font-size="16">'
+           f'Topology: {html.escape(os.path.basename(root))} · {len(files)} files · {len(edges)} imports</text>']
+    for i, (a, b) in enumerate(edges):
+        if a not in pos or b not in pos:
+            continue
+        x1, y1 = pos[a]
+        x2, y2 = pos[b]
+        mid = (y1 + y2) / 2 + ((i % 7) - 3) * 7
+        out.append(f'<path d="M{x1},{y1 + 8} L{x1},{mid:.0f} L{x2},{mid:.0f} L{x2},{y2 - 14}" '
+                   f'fill="none" stroke="#B7D96A" stroke-opacity="0.4" stroke-width="1.3" '
+                   f'marker-end="url(#a)"/>')
+    for f, (x, y) in pos.items():
+        d = deg.get(f, 0)
+        r = 6 + min(14, d * 1.6)
+        color = palette[dirs.index(f.rsplit("/", 1)[0] if "/" in f else ".") % len(palette)]
+        label = f.split("/")[-1]
+        out.append(f'<circle cx="{x}" cy="{y}" r="{r:.1f}" fill="{color}"/>')
+        out.append(f'<text x="{x}" y="{y + r + 13:.0f}" fill="#E8F0D8" font-family="monospace" '
+                   f'font-size="10" text-anchor="middle">{html.escape(label)}</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def topology_md(root, files, edges):
+    inbound, outbound = {}, {}
+    for a, b in edges:
+        outbound.setdefault(a, []).append(b)
+        inbound.setdefault(b, []).append(a)
+    hubs = sorted(inbound.items(), key=lambda kv: -len(kv[1]))[:15]
+    rows = ["| file | imported by | imports |", "|---|---|---|"]
+    for f, importers in hubs:
+        rows.append(f"| `{f}` | {len(importers)} | {len(outbound.get(f, []))} |")
+    orphans = [f for f in files if f not in inbound and f not in outbound]
+    sections = [("Most depended on", "\n".join(rows)),
+                ("Diagram", "![topology](topology.svg)\n\nOpen `topology.svg` and press cmd-shift-v "
+                            "for the full graph.")]
+    if orphans:
+        sections.append(("Files with no imports",
+                         ", ".join(f"`{o}`" for o in orphans[:40])))
+    return md_page("Topology", f"{root} · {len(files)} files · {len(edges)} import links", sections)
+
+
 def cmd_topology(argv):
     root = os.path.abspath(argv[0]) if argv else os.getcwd()
     files, edges = graph_data(root)
     if not files:
         print("no index for this repo; run: xyra-context index <path>", file=sys.stderr)
         return 1
+    if IN_EDITOR:
+        linked = {f for e in edges for f in e}
+        connected = [f for f in files if f in linked][:220]
+        cedges = [e for e in edges if e[0] in connected and e[1] in connected]
+        svg = topology_svg(root, connected, cedges)
+        if svg:
+            write_view("topology.svg", svg, root)
+        path = write_view("topology.md", topology_md(root, connected or files, cedges), root)
+        open_view(path)
+        print(path)
+        return 0
     linked = {f for e in edges for f in e}
     ranked = sorted(files, key=lambda f: (f not in linked, f))
     keep = set(ranked[:700]) | linked
@@ -453,6 +652,23 @@ def cmd_timeline(argv):
             f"<main><div class='lane'><h2>History and decision points</h2>{''.join(rows)}</div>"
             "<p class='muted'>Copy a branch command to continue from that point with a different "
             "approach; the working tree is never touched by this view.</p></main>")
+    if IN_EDITOR:
+        rows_md = ["| kind | ref | what | when |", "|---|---|---|---|"]
+        for m in marks[:80]:
+            when = time.strftime("%d %b %H:%M", time.localtime(m["ts"]))
+            rows_md.append(f"| {m['kind']} | `{m.get('ref','')}` | {m['label'][:90]} | {when} |")
+        branch = "\n".join(
+            f"- `{m['label'][:60]}` -> `git switch -c retry-{m['sha'][:7]} {m['sha'][:12]}`"
+            for m in marks[:10] if m.get("sha"))
+        sections = [("History and decisions", "\n".join(rows_md))]
+        if branch:
+            sections.append(("Branch from a decision", branch))
+        path = write_view("timeline.md", md_page(
+            "Time travel",
+            f"{root} · {len(commits)} commits, {len(journal)} recorded decisions", sections), root)
+        open_view(path)
+        print(path)
+        return 0
     path = write_view("timeline.html", page("Xyra time travel", body))
     open_view(path)
     print(path)
@@ -523,6 +739,21 @@ def cmd_secops(argv):
                "<p class='muted'>No security or cost patterns matched.</p>")
             + "<p class='muted'>Static heuristics, not a substitute for xyra-council review; "
               "run xyra-council for adversarial analysis of the same diff.</p></main>")
+    if IN_EDITOR:
+        rows_md = ["| severity | kind | location | issue |", "|---|---|---|---|"]
+        for f in findings[:120]:
+            rows_md.append(f"| {f['severity']} | {f['kind']} | `{f['file']}:{f['line']}` | {f['label']} |")
+        body_md = "\n".join(rows_md) if findings else "No security or cost patterns matched."
+        path = write_view("secops.md", md_page(
+            "Security and cost", f"{root} · {scope} · {len(findings)} flags",
+            [("Flags", body_md),
+             ("", "Static heuristics. Run xyra-council for adversarial analysis of the same diff.")]),
+            root)
+        open_view(path)
+        print(json.dumps({"findings": len(findings),
+                          "high": sum(1 for f in findings if f["severity"] == "high"),
+                          "view": path}, indent=2))
+        return 0
     path = write_view("secops.html", page("Xyra secops", body))
     open_view(path)
     print(json.dumps({"findings": len(findings),
@@ -567,6 +798,21 @@ def cmd_cockpit(argv):
               "<span class='muted'>then apply, deliberately, in your own terminal</span></div></div>"
               "<p class='muted'>Nothing is applied from this page by design: the cockpit reports, "
               "you execute.</p></main>")
+    if IN_EDITOR:
+        stats = "\n".join(f"- **{k}**: {v}" for k, v in cards)
+        files_md = "\n".join(f"- `{f}`" for f in changed[:60]) or "_no uncommitted changes_"
+        dec_md = "\n".join(f"- **{d.get('kind','')}**: {str(d.get('summary',''))[:120]}"
+                            for d in journal[-20:]) or "_none recorded_"
+        path = write_view("cockpit.md", md_page(
+            "Decision cockpit", root,
+            [("Summary", stats), ("Diff", f"`{stat}`\n\n{files_md}"),
+             ("Decisions on record", dec_md),
+             ("Approval", "Nothing is applied from this view by design.\n\n"
+                          "1. `xyra-sandbox verify`\n2. `git add -A && git commit`\n"
+                          "3. push deliberately, from your own terminal")]), root)
+        open_view(path)
+        print(path)
+        return 0
     path = write_view("cockpit.html", page("Xyra cockpit", body))
     open_view(path)
     print(path)
