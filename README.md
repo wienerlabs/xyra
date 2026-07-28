@@ -4,30 +4,196 @@
 
 <h1 align="center">Xyra</h1>
 
-<p align="center">The agentic code editor where every change is cross-examined by a rival AI before you see it. Flat-rate, local-first, and yours.</p>
+<p align="center">The agentic code editor that never shows you code it has not proven. Flat-rate, local-first, and yours.</p>
 
 ## Why Xyra is different
 
-Other agentic editors are metered clouds tied to one model vendor. Xyra is the opposite, and the difference is architectural, not cosmetic:
+Other agentic editors are metered clouds tied to one model vendor, and they hand you code they have never run. Xyra is the opposite, and the difference is architectural, not cosmetic:
 
-- **A rival reviews every change.** One vendor writes, a rival vendor cross-examines it through correctness, security and convention lenses before it reaches you. Metered editors cannot afford to run two frontier vendors on every task. Xyra can, because it runs on flat-rate subscription quota.
-- **Flat-rate, not per-token.** Grok Build runs on your SuperGrok or X Premium quota. No meter, no per-token anxiety, so agents can run wide and often.
+- **Nothing reaches you unproven.** Before an agent presents a change, it runs the project's tests against an isolated snapshot of that change. Broken code gets fixed in the snapshot, not in your working tree.
+- **A rival reviews every change.** One vendor writes, a rival vendor cross-examines through correctness, security and convention lenses. Metered editors cannot afford two frontier vendors per task. Xyra can, because it runs on flat-rate subscription quota.
+- **The agent can see.** After a UI change it renders the page, screenshots it and has a vision model judge the result. It does not guess whether the button moved.
+- **It knows, it does not estimate.** Beside semantic search there is a deterministic import graph, so "what breaks if I change this" is answered by traversal, not by embedding similarity.
 - **One editor, every model.** Grok Build, Claude Code and local Ollama models live in one panel. Route the best agent per task, run them in parallel, stay vendor-independent.
-- **Local-first and yours.** Semantic code search runs on a local embedding model, local models keep code on the machine, telemetry is off, and the whole setup ships as a repo your team owns. No lock-in, no exfiltration.
-
-The flagship is the council: `xyra-council` and its project-scale sibling `xyra-cosmos`. Both are documented below.
+- **Local-first and yours.** Embeddings, the graph, the QA runs and the visual checks are local. Telemetry is off. The whole setup ships as a repo your team owns.
 
 ## The autonomy engine
 
-Five capabilities that ship as local tools and are exposed to every panel agent over MCP, so the agent uses them on its own:
+Five capabilities ship as local tools and are exposed to every panel agent over MCP, so agents reach for them unprompted:
 
-- **Invisible sandbox** (`xyra-sandbox`): agents prove code before you see it. `sandbox_verify` runs the repo's tests against a snapshot of the uncommitted changes in an isolated git worktree; `xyra-sandbox loop` goes further and lets a fixer model iterate until tests pass, then emits only the proven diff. The editor never presents code that is known broken.
-- **Vision** (`xyra-vision`): after a frontend change the agent renders the page headless, screenshots it and has a local vision model judge layout, alignment and overflow (`ui_check`), or compare the screenshot against a Figma export pixel by concept (`ui_compare`). The agent sees the button it just moved.
-- **Fleet** (`xyra-fleet`): register related repos in `.xyra/fleet.json` and the agent searches and impact-analyzes across all of them at once (`fleet_search`, `fleet_impact`), so an API change lands consistently in backend, frontend and infra in one pass. `xyra-fleet refactor --execute` drives the change through every affected repo sequentially.
-- **Dependency graph** (`xyra-context`): beside the semantic index, a deterministic import graph parsed from the source (TS/JS, Python, Rust). `code_impact` answers "who breaks if I change this" mathematically, with transitive distance, instead of guessing from embeddings. Works even with Ollama off.
-- **QA agent** (`xyra-qa`): drives the running app like a hostile user for a time budget: junk into forms, wrong passwords, rapid clicks, random navigation, while collecting console errors, page errors and failed requests into a defect report an agent can act on.
+### Invisible sandbox: `xyra-sandbox`
 
-The agent instructions shipped with Xyra mandate the flow: verify in the sandbox before presenting, look at the UI after changing it, run impact analysis before touching shared contracts.
+Agents prove code before you see it. `sandbox_verify` copies the uncommitted changes (tracked, staged and untracked) into a throwaway git worktree and runs the project's own test or build command there. Your working tree is never touched.
+
+```bash
+xyra-sandbox verify                    # run the project's tests against the current changes, isolated
+xyra-sandbox verify --staged           # only what is staged
+xyra-sandbox loop --rounds 3           # let a fixer model iterate until green, then print the proven diff
+```
+
+`xyra-sandbox loop` is the autonomous mode: on failure it hands the error to a fixer inside the snapshot, retries, and emits only a diff that has passed. The agent instructions make verification mandatory before presenting a non-trivial change.
+
+### Vision: `xyra-vision`
+
+The agent renders the page headless, screenshots it and asks a vision model whether it matches the intent. Grok is the default judge (subscription quota, no API cost) and a local Ollama vision model is the fallback.
+
+```bash
+xyra-vision check http://localhost:3000 "the hero button is centered and nothing overflows"
+xyra-vision compare http://localhost:3000 ~/Downloads/figma-export.png
+XYRA_VISION_PROVIDER=ollama xyra-vision check ...      # force the local model
+```
+
+Verdicts are structured JSON with issues ranked by severity, which is what makes them usable inside a fix loop. The topology view in this repository was fixed exactly that way: the vision tool rejected two attempts for label collision and unreadable edge direction before passing the third.
+
+### Fleet: `xyra-fleet`
+
+Modern projects are several repositories. Fleet gives agents one view across all of them, and setup happens from GitHub rather than a hand-written file.
+
+```bash
+xyra-fleet connect                     # pick your repos from GitHub, clone the missing ones, write the manifest
+xyra-fleet list                        # what is in the fleet
+xyra-fleet search getUserProfile       # every usage across every repo
+xyra-fleet impact getUserProfile       # which repo defines it, which repos consume it
+xyra-fleet refactor "rename the endpoint" --symbol getUserProfile --execute
+```
+
+`connect` lists your GitHub repositories through `gh`, clones what is missing and writes `.xyra/fleet.json` with guessed roles. The **Fleet** button in the status bar opens the same flow.
+
+### Dependency graph: `xyra-context`
+
+Beside the vector index there is a deterministic import graph parsed from the source (TypeScript, JavaScript, Python, Rust). It answers impact questions by traversal.
+
+```bash
+xyra-context index /path/to/repo
+xyra-context search /path/to/repo "where is the auth middleware"
+xyra-context impact /path/to/repo fetchUser      # definition, importers by distance, textual references
+xyra-context graph /path/to/repo src/api.ts      # one file's neighborhood
+```
+
+The graph is built during indexing and works with Ollama off; semantic search simply degrades to symbol lookup in that case.
+
+### QA agent: `xyra-qa`
+
+A hostile user with a time budget. It crawls same-origin pages, optionally logs in, fills every input with type-aware junk (malformed emails, huge strings, injection strings, numeric overflow), clicks aggressively, and collects console errors, uncaught exceptions, HTTP 5xx, failed requests, accessibility problems and load timings.
+
+```bash
+xyra-qa run http://localhost:3000 --seconds 120
+XYRA_QA_USER=demo@x.io XYRA_QA_PASS=secret xyra-qa run http://localhost:3000
+```
+
+Defects are deduplicated and ranked by severity into a markdown report, then summarized into a bug report with reproduction steps.
+
+The agent instructions mandate the flow: verify in the sandbox before presenting, look at the UI after changing it, run impact analysis before touching shared contracts.
+
+## Agent visibility surfaces
+
+Six views render from real local data. Each has a task and a shortcut, and the main ones have a labeled button in the status bar.
+
+| View | What it shows | Shortcut |
+|---|---|---|
+| **Agents** | Live orchestration: which agent is doing what, grouped into router, architect, coder, reviewer, sandbox, QA and vision lanes, refreshing while work runs | cmd-alt-a |
+| **Context x-ray** | Which files the agents actually read, as an attention heatmap built from real session logs, so you can see when focus is on the wrong file | cmd-alt-x |
+| **Topology** | The real import graph as a layered dependency diagram with directional connectors, a filter, and per-file dependency tracing on click | cmd-alt-m |
+| **Time travel** | Commits and recorded agent decisions on one timeline, each with a ready command to branch from that point and try a different approach | cmd-alt-h |
+| **Guard** | Security and cost flags: hardcoded credentials, eval on dynamic input, raw HTML injection, awaits inside loops, select star, unchecked unwraps, Solana privileged instructions | cmd-alt-s |
+| **Cockpit** | End-of-mission summary: files changed, decisions on record, council verdicts, sandbox runs, and an approval section that deliberately does not apply anything for you | cmd-alt-k |
+
+```bash
+xyra-views hud            # or: xray, topology, timeline, secops, cockpit
+xyra-views decide "state management" "Redux" "Context API" --npm @reduxjs/toolkit,react
+```
+
+`decide` renders an A/B architecture card with real package sizes and dependency counts pulled from the npm registry, instead of asking the question as terminal text.
+
+## Council: cross-vendor adversarial coding
+
+`xyra-council` is the flagship. One vendor implements a change; a rival vendor cross-examines it through three lenses in parallel, correctness, security and house conventions, and returns a structured verdict. If the verdict blocks, the builder addresses the blocking findings and the rival re-examines, up to a bounded number of rounds. Every run writes an audit trail to `docs/council/`.
+
+```bash
+xyra-council "add rate limiting to the API"          # Grok builds, Claude cross-examines, fixes if blocked
+xyra-council --review-only                            # rival reviews your own uncommitted diff
+xyra-council --review-only --staged                   # review the staged diff before committing
+xyra-council --by claude --review grok "..."          # swap roles
+xyra-council --lenses security --rounds 3 "..."       # focus one lens, allow more fix rounds
+xyra-council --review-only --json                     # machine-readable verdict for scripts and hooks
+```
+
+Verdicts: `CLEAN`, `APPROVE WITH NOTES` (only low/medium findings), `BLOCK` (any critical/high), or `INCONCLUSIVE` (a lens failed to return). Exit code is non-zero on `BLOCK`, so it drops straight into a pre-commit or CI gate.
+
+### Enterprise controls
+
+The council is a tested, dependency-light Python package (`context/council/`, installed to `~/.xyra/council`):
+
+- **Secret redaction before review.** Diffs are scrubbed of private keys, tokens, `.env` secrets and Solana keypairs before anything reaches a vendor.
+- **Policy as code.** A per-repo `.xyra/council.toml` sets vendors, lenses and gates. Path rules require extra lenses and escalate the blocking severity for sensitive code:
+
+  ```toml
+  [[policy.rules]]
+  paths = ["**/money*.ts", "programs/**", "**/vault*.rs"]
+  require = ["security"]
+  block_on = ["critical", "high", "medium"]
+  ```
+
+- **Reviewer panel with consensus.** Review with a panel (`--reviewers claude,local`) and require `any` or `majority` to block (`--consensus`).
+- **SARIF output** (`--sarif council.sarif`) uploads straight into GitHub Code Scanning.
+- **Verdict cache** keyed by content hash, so an unchanged diff is never re-reviewed.
+- **Resilient providers** with retry and backoff, per-agent timeouts, and structured JSON logs (`--log-json`).
+- **Audit trail** in `docs/council/` as both Markdown and JSON, one file per run.
+- **Live events.** Every run publishes to the shared event bus, which is what the Agents view renders.
+
+Drop-in gates ship in `templates/`: a git `pre-commit` hook and a `council.yml` GitHub Actions workflow that reviews the PR diff and uploads SARIF.
+
+## Cosmos: council at project scale
+
+`xyra-cosmos` runs the council at the design level: one vendor writes a design doc grounded in the codebase, a rival challenges it (risks, missing pieces, simpler approach, money and Solana safety), the first finalizes it, and the result lands in `docs/cosmos/` before any code is written.
+
+```bash
+xyra-cosmos "migrate the settlement flow to the new vault program"   # design only
+xyra-cosmos --reviewers claude,local "..."                            # panel challenge
+xyra-cosmos --execute "..."                                           # run every ticket through the council
+```
+
+With `--execute`, Cosmos topologically sorts the ticket list and runs each ticket through `xyra-council`, stopping at the first blocked ticket unless you pass `--force`.
+
+## Always-on council
+
+`xyra-watch` turns the council into a heartbeat for a repository. It watches the working tree, and once you stop changing it for a few minutes, a rival vendor reviews the diff in the background and queues the findings.
+
+```bash
+xyra-watch ~/cortex                  # foreground: review after 5 idle minutes
+xyra-watch ~/cortex --queue          # show what the background council found
+xyra-watch ~/cortex --install-agent  # run it under launchd, always on
+```
+
+## Skills
+
+Grok sessions load the Wiener skills from `grok/skills/`, installed to `~/.grok/skills/`. Grok also reads Claude skills from `~/.claude/skills` automatically, so both agents share one skill investment.
+
+| Skill | What it enforces |
+|---|---|
+| **wiener-autonomy** | Prove before you present: sandbox verification before showing a diff, a vision check after any UI change, impact analysis before touching shared contracts, fleet tools for cross-repo work, QA sweeps after a feature. Report evidence, not intentions. |
+| **wiener-terminal** | Never hang a thread: no interactive commands (the non-interactive flag per CLI is tabulated), no foreground servers or watchers, no login flows in the panel, kill silent long-running commands instead of waiting. |
+| **wiener-conventions** | House rules for code, commits and UI copy, applied whenever code is written. |
+| **wiener-review** | Review checklist: integer money math, Supabase RPC grants, the Next.js server-to-client prop boundary, convention violations. |
+| **wiener-solana** | Guardrails for anything touching funds: canonical addresses only (address poisoning defense), integer base units, simulation before send, devnet by default. |
+| **wiener-ship** | Pre-push checklist: green tests and build, secrets scan, commit format, solo push-to-main flow. |
+| **wiener-prompt-optimizer** | Rewrites a vague request into a precise, well-scoped prompt before acting on it. |
+
+## Attribution: Xyra as a contributor
+
+Work done through Xyra can be credited to a Xyra identity on GitHub, the way agent-assisted commits show up elsewhere. GitHub reads the `Co-authored-by` trailer and, when the email belongs to a real GitHub account, lists that account among the repository's contributors.
+
+Setup is one time:
+
+1. Create a GitHub account for the identity (for example `xyra-labs`) and copy its noreply address from Settings, Emails. It looks like `12345678+xyra-labs@users.noreply.github.com`. The account must exist, otherwise the trailer credits nobody.
+2. Register it and install the hook:
+
+   ```bash
+   xyra-attribution setup "Xyra" 12345678+xyra-labs@users.noreply.github.com
+   xyra-attribution status
+   ```
+
+The hook adds the trailer only when `XYRA_SESSION=1` is set, which the editor sets for its agent servers. Commits you make yourself in a plain terminal stay untouched, and a repository with its own hooks keeps them: the Xyra hook chains to the repo hook before doing anything. Remove it any time with `xyra-attribution uninstall`.
 
 ## What it installs
 
@@ -36,19 +202,20 @@ The agent instructions shipped with Xyra mandate the flow: verify in the sandbox
 - Zed editor (official Homebrew cask), renamed and branded as Xyra
 - Xyra theme: lime and near-black palette derived from the logo, dark and light variants, follows the system appearance
 - Grok Build CLI (official xAI cask) and Claude Code wired into the agent panel over ACP
-- `xyra-council`: cross-vendor adversarial coding (the flagship)
-- `xyra-cosmos`: project-scale design orchestration with a rival challenge
-- `xyra-context`: a local semantic context engine shared by every agent
-- The wiener-conventions, wiener-review, wiener-solana, wiener-ship and prompt-optimizer skills applied in every agent session
+- The autonomy tools: `xyra-sandbox`, `xyra-vision`, `xyra-fleet`, `xyra-qa`, and the `xyra-tools` MCP server behind them
+- The visibility surfaces: `xyra-views` plus tasks and shortcuts for all six
+- `xyra-council`, `xyra-cosmos`, `xyra-watch`: adversarial coding, design orchestration and the always-on reviewer
+- `xyra-context`: semantic search plus the deterministic dependency graph, shared by every agent
+- `xyra-attribution`: optional Xyra co-author credit on agent commits
+- `xyra-grok-keepalive`: keeps the Grok session alive so you sign in once
+- All seven Wiener skills, applied in every agent session
 - Editor tasks and shortcuts, house-stack snippets (Zod, Next.js, Anchor), a Turkish-speaking agent via AGENTS.md
 - JetBrains Mono Nerd Font, Cursor keymap, block cursor, Zeta edit predictions
-- The `xyra`, `xyra-fix`, `xyra-doctor`, `xyra-sandbox`, `xyra-vision`, `xyra-fleet`, `xyra-qa` terminal commands
-
-After install, one panel gives you three layers: Grok Build (subscription quota, up to 8 parallel agents), Claude Code (built in), and optional local Ollama models, all reviewing each other through the council.
+- The `xyra`, `xyra-fix` and `xyra-doctor` terminal commands
 
 ## Downloads
 
-Every release ships four packages, all built from source by CI:
+Every release ships packages for all four platforms, built from source by CI:
 
 | Platform | Asset |
 |---|---|
@@ -57,13 +224,14 @@ Every release ships four packages, all built from source by CI:
 | Linux x64 | `Xyra-<version>-Linux-x64.AppImage` (plus a tar.gz) |
 | Windows x64 | `Xyra-<version>-Windows-x64.exe` (Inno Setup installer) |
 
-On every platform the agent menu includes Grok Build out of the box, and the welcome page shows a Grok sign-in button (or your signed-in state) so a fresh download is agent-ready in one click. The [Grok CLI](https://x.ai/cli) installs on macOS, Linux and Windows with the one-liners on that page.
+Turkish builds carry a `-tr` suffix on the same assets. On every platform the agent menu includes Grok Build out of the box, and the welcome page shows a Grok sign-in button (or your signed-in state), so a fresh download is agent-ready in one click. The [Grok CLI](https://x.ai/cli) installs on macOS, Linux and Windows with the one-liners on that page.
 
 ## Requirements
 
 - macOS and [Homebrew](https://brew.sh) for the full `install.sh` experience; on Linux and Windows use the packaged builds above
 - A personal SuperGrok or X Premium+ subscription for Grok Build
-- Optional: a Claude Code account, Ollama
+- Chrome or Chromium for the vision and QA agents, Node for the QA agent
+- Optional: a Claude Code account, Ollama for local models and offline vision
 
 ## Install
 
@@ -75,37 +243,20 @@ cd xyra
 
 By default this **downloads the pre-built Xyra from the latest GitHub Release** (no compilation) and applies the Wiener configuration. It needs the GitHub CLI signed in (`gh auth login`); the installer installs `gh` if missing. To build from source instead (no Xcode required, ~45-60 minutes), run `./install.sh --source`. If no release exists yet, the installer falls back to a source build automatically.
 
-### Turkish UI
-
-Install Xyra with a fully localized Turkish interface by adding `--lang tr`:
+### Turkish UI (Türkçe arayüz)
 
 ```bash
 ./install.sh --lang tr
 ```
 
-If a Turkish release is published, the `-tr` package is downloaded; otherwise Xyra is built from source in Turkish (`XYRA_LANG=tr`, ~45-60 min). The translation layer is a build-time source-string pass that lives entirely under [`translations/`](translations/) and never touches the English build. See [translations/README.md](translations/README.md) for the workflow and how to extend coverage.
+If a Turkish release is published, the `-tr` package is downloaded; otherwise Xyra is built from source in Turkish (`XYRA_LANG=tr`). The translation layer is a build-time source-string pass that lives entirely under [`translations/`](translations/) and never touches the English build. See [translations/README.md](translations/README.md) for the workflow and how to extend coverage.
 
-**Switching between Turkish and English.** The language is fixed at build time — there is **no in-app toggle**. Zed has no runtime localization; UI strings are compiled into the binary, so the language you get is the build you installed. To switch, reinstall with the desired flag — each install replaces `/Applications/Xyra.app` in place, and your settings, keymaps and extensions are left untouched:
+**Switching between Turkish and English.** The language is fixed at build time; there is no in-app toggle, because Zed has no runtime localization. Reinstall with the desired flag; each install replaces `/Applications/Xyra.app` in place and leaves your settings, keymaps and extensions alone.
 
 ```bash
 ./install.sh --lang tr   # Turkish
 ./install.sh             # English (default)
 ```
-
-Until a Turkish release is published on GitHub, add `--source` so the chosen language is built locally instead of downloaded (e.g. `./install.sh --source --lang tr` for Turkish, `./install.sh --source` for English).
-
-## Publishing a release
-
-Maintainers publish a versioned build to the repo's Releases so employees install without compiling:
-
-```bash
-./build/build-xyra.sh          # build and verify locally (or use an existing /Applications/Xyra.app)
-./build/publish-release.sh v0.1.0
-```
-
-`publish-release.sh` refuses to publish an app that does not contain the Xyra brand, zips `Xyra.app`, attaches a SHA-256, and creates the GitHub Release with source-availability notes. `install.sh` then downloads it.
-
-A `.github/workflows/release.yml` workflow can build and publish automatically on a `v*` tag push, running on a macOS runner. It is optional: macOS Actions minutes are billed at a high multiplier, so if Actions billing is unavailable, use the local `publish-release.sh` path above.
 
 ## First launch
 
@@ -113,13 +264,13 @@ A `.github/workflows/release.yml` workflow can build and publish automatically o
 2. Open Xyra and sign in with GitHub from the top right. This enables Zeta edit predictions.
 3. Open the agent panel (cmd+?) and pick Grok Build from the + menu. Claude Code ships in the same menu.
 
-You sign in once. The installer registers a launchd agent (`xyra-grok-keepalive`) that exercises the xAI refresh token every two hours, so the session stays alive indefinitely instead of dying after long idle gaps. If xAI still revokes the session, the agent reopens the browser flow, which completes on its own while your x.ai web session is alive, and posts a notification either way. Check it with `xyra-grok-keepalive status`.
+You sign in once. The installer registers a launchd agent (`xyra-grok-keepalive`) that exercises the xAI refresh token every two hours, so the session stays alive instead of dying after long idle gaps. If xAI still revokes the session, the agent reopens the browser flow, which completes on its own while your x.ai web session is alive, and posts a notification either way. Check it with `xyra-grok-keepalive status`.
 
 Track quota from inside Grok Build with the `/usage` command.
 
 ## Daily driving
 
-Agent tasks are available from the task picker (cmd-shift-p, then "task: spawn") and on shortcuts:
+Tasks are available from the task picker (cmd-shift-p, then "task: spawn") and on shortcuts:
 
 | Shortcut | Task |
 |---|---|
@@ -127,131 +278,46 @@ Agent tasks are available from the task picker (cmd-shift-p, then "task: spawn")
 | cmd-alt-r | Grok: review current file |
 | cmd-alt-t | Xyra: test and fix with Grok |
 | cmd-alt-c | Claude: continue last session |
+| cmd-alt-v | Xyra: verify in sandbox |
+| cmd-alt-f | Xyra: connect fleet repos |
+| cmd-alt-a | Xyra: agent orchestration HUD |
+| cmd-alt-x | Xyra: context x-ray |
+| cmd-alt-m | Xyra: topology map |
+| cmd-alt-h | Xyra: time travel |
+| cmd-alt-s | Xyra: security and cost |
+| cmd-alt-k | Xyra: decision cockpit |
 
-The agent panel is docked on the right. The inline assistant lives on ctrl-enter and uses the configured model. Multiple agent threads can run side by side; the dashboard task shows parallel Grok agents live. When an agent finishes a task, the panel celebrates with a three second dollar rain, because shipped work should feel like it.
+The agent panel is docked on the right. Panel toggles in the status bar carry their names (Agent, Terminal, Project, Git) instead of bare icons, and buttons are sized for comfortable clicking. The inline assistant lives on ctrl-enter. Multiple agent threads run side by side. When an agent finishes a task, the panel celebrates with a three second dollar rain, because shipped work should feel like it.
 
 Two commands work in any repository, inside or outside the editor:
 
 - `xyra-fix test` and `xyra-fix build` detect the project's runner (pnpm, bun, npm, cargo, pytest, go), run it, and on failure open Grok with the failure log and a fix mandate. On success they exit quietly.
-- `xyra-doctor` verifies the whole setup: app, brew duplicate guard, Grok sign-in, theme, tasks, snippets, conventions skill, font and optional Ollama. Run it after install or whenever something feels off.
+- `xyra-doctor` verifies the whole setup: app, brew duplicate guard, Grok sign-in and keepalive, autonomy tools, Chrome availability, theme, tasks, snippets, skills, font and optional Ollama.
 
 ## Updates
 
-Xyra updates itself in place; it is intentionally detached from Homebrew (the installer removes the brew registration so `brew upgrade` can never create a second Zed.app next to Xyra).
+Xyra updates itself in place; it is intentionally detached from Homebrew (the installer removes the brew registration so `brew upgrade` can never create a second Zed.app next to Xyra). For a clean reinstall: `./update.sh`.
 
-For a clean reinstall:
-
-```bash
-./update.sh
-```
-
-## Council: cross-vendor adversarial coding
-
-`xyra-council` is the flagship. One vendor implements a change; a rival vendor then cross-examines it through three lenses in parallel, correctness, security and house conventions, and returns a structured verdict. If the verdict blocks, the builder addresses the blocking findings and the rival re-examines, up to a bounded number of rounds. Every run writes an audit trail to `docs/council/`.
-
-Because Xyra runs on flat-rate subscription quota (Grok Build) plus local models, running two frontier vendors on every task costs nothing at the margin, which metered cloud editors cannot afford. That is the moat.
+## Publishing a release
 
 ```bash
-xyra-council "add rate limiting to the API"          # Grok builds, Claude cross-examines, fixes if blocked
-xyra-council --review-only                            # rival reviews your own uncommitted diff
-xyra-council --review-only --staged                  # review the staged diff before committing
-xyra-council --by claude --review grok "..."         # swap roles
-xyra-council --lenses security --rounds 3 "..."      # focus one lens, allow more fix rounds
-xyra-council --review-only --json                    # machine-readable verdict for scripts and hooks
+./build/build-xyra.sh          # build and verify locally
+./build/publish-release.sh v0.5.0
 ```
 
-Verdicts: `CLEAN`, `APPROVE WITH NOTES` (only low/medium findings), `BLOCK` (any critical/high), or `INCONCLUSIVE` (a lens failed to return). Exit code is non-zero on `BLOCK`, so it drops straight into a pre-commit or CI gate.
-
-### Enterprise controls
-
-The council is a tested, dependency-light Python package (`context/council/`, installed to `~/.xyra/council`) with the controls a team needs:
-
-- **Secret redaction before review.** Diffs are scrubbed of private keys, tokens, `.env` secrets and Solana keypairs before anything reaches a vendor. Nothing sensitive leaves the machine even when a cloud model reviews.
-- **Policy as code.** A per-repo `.xyra/council.toml` sets vendors, lenses, and gates. Path rules require extra lenses and escalate the blocking severity for sensitive code:
-
-  ```toml
-  [[policy.rules]]
-  paths = ["**/money*.ts", "programs/**", "**/vault*.rs"]
-  require = ["security"]
-  block_on = ["critical", "high", "medium"]
-  ```
-
-- **Reviewer panel with consensus.** Instead of one rival, review with a panel (`--reviewers claude,local`) and require `any` or `majority` to block (`--consensus`). Three independent angles catch what one misses.
-- **SARIF output** (`--sarif council.sarif`) uploads straight into GitHub Code Scanning.
-- **Verdict cache** keyed by content hash, so an unchanged diff is never re-billed.
-- **Resilient providers** with retry and backoff, per-agent timeouts, and structured JSON logs (`--log-json`).
-- **Audit trail** in `docs/council/` as both Markdown and JSON, one file per run.
-
-Drop-in gates ship in `templates/`: a git `pre-commit` hook (`xyra-council --review-only --staged`) and a `council.yml` GitHub Actions workflow that reviews the PR diff and uploads SARIF.
-
-In the editor: `cmd-alt-k` runs a rival-vendor review of your current changes. The council grounds the builder with the semantic context engine and sharpens reviews with the wiener-conventions, wiener-review and wiener-solana skills, so money and Solana code get scrutinized on integer units and address-poisoning by default.
-
-## Cosmos: council at project scale
-
-`xyra-cosmos` takes a project objective and runs the council at the design level: one vendor writes a design doc grounded in the codebase, a rival vendor challenges it (risks, missing pieces, simpler approach, money/Solana safety), the first vendor finalizes it, and the result lands in `docs/cosmos/` for you to review before any code is written. The most valuable artifact in a large project is a design vetted from two independent angles.
-
-```bash
-xyra-cosmos "migrate the settlement flow to the new vault program"
-# -> docs/cosmos/<date>-<slug>.md  (design + rival challenge on the record)
-```
-
-```bash
-xyra-cosmos "migrate the settlement flow to the new vault program"           # design only
-xyra-cosmos --reviewers claude,local "..."                                    # panel challenge
-xyra-cosmos --execute "..."                                                   # autonomous: run every ticket through the council
-```
-
-The design phase parses a dependency-ordered ticket list into the doc. With `--execute`, Cosmos topologically sorts the tickets and runs each one through `xyra-council` (implement plus rival review), stopping at the first blocked ticket unless you pass `--force`. Design and tickets stay local and in-repo, never in a vendor's cloud.
-
-## Always-on council
-
-`xyra-watch` turns the council into a heartbeat for a repository. It watches your working tree, and once you stop changing it for a few minutes, a rival vendor reviews the diff in the background, queues the findings, and notifies you. Because Xyra is flat-rate and local, this runs continuously at no marginal cost, which a metered cloud editor cannot do.
-
-```bash
-xyra-watch ~/cortex                  # foreground: review after 5 idle minutes
-xyra-watch ~/cortex --queue          # show what the background council found
-xyra-watch ~/cortex --install-agent  # run it under launchd, always on
-```
-
-Findings land in a per-repo queue and every run leaves an audit trail. Stop working, and by the time you come back the council has already looked.
-
-## Semantic context engine
-
-`context/xyra_context.py` is a dependency-light MCP server that gives every agent (Grok Build, Claude Code, and the native Xyra agent) semantic search over a codebase, instead of grep. It embeds code chunks with a local Ollama model (`nomic-embed-text`, no API cost, nothing leaves the machine), stores vectors in a per-repo SQLite cache, and re-embeds only changed files (content-hash incremental).
-
-Installed as `xyra-context` and registered with all three agents automatically. Manual use:
-
-```bash
-xyra-context index /path/to/repo     # build or refresh the index
-xyra-context search /path/to/repo "where is the auth middleware"
-```
-
-Agents call the `code_search` and `code_index` tools directly. This is the foundation for smarter, lower-token context assembly.
-
-## Skills
-
-Grok sessions load the Wiener skills from `grok/skills/`, installed to `~/.grok/skills/`:
-
-- **wiener-conventions**: house rules for code, commits and UI copy, applied whenever code is written
-- **wiener-review**: review checklist covering integer money math, Supabase RPC grants, the Next.js server-to-client prop boundary and convention violations
-- **wiener-solana**: guardrails for anything touching funds: canonical addresses only (address poisoning defense), integer base units, simulation before send, devnet by default
-- **wiener-ship**: pre-push checklist: green tests and build, secrets scan, commit format, solo push-to-main flow
-
-Grok also reads Claude skills from `~/.claude/skills` automatically, so both agents share one skill investment.
+`publish-release.sh` refuses to publish an app that does not contain the Xyra brand, zips `Xyra.app`, attaches a SHA-256 and creates the GitHub Release. Pushing a `v*` tag runs the three release workflows instead, producing every platform and both languages.
 
 ## Branded build: every pixel Xyra
-
-The stock install renames the app and sets the icon, but compiled strings like the welcome screen still say Zed. For the full rebrand, build Xyra from the GPL source with the Wiener brand patch:
 
 ```bash
 ./build/build-xyra.sh
 ```
 
-Requirements: Command Line Tools (`xcode-select --install`) and Rust. No full Xcode needed: the patch enables gpui's `runtime_shaders` feature, which compiles Metal shaders at app startup instead of at build time. The script pins the upstream tag, applies `build/patch-brand.sh` (menu bar and About name, welcome screen text and logo, app icon baked into the bundle, Xyra theme embedded as a built-in), builds with the official bundle script and installs to /Applications/Xyra.app. Expect 30-60 minutes on first build. Updates: bump the tag in the script and rerun.
+Requirements: Command Line Tools (`xcode-select --install`), Rust and CMake. No full Xcode needed: the patch enables gpui's `runtime_shaders` feature, which compiles Metal shaders at app startup instead of at build time. The script pins the upstream tag and applies `build/patch-brand.sh`, which layers every Xyra difference onto the GPL source: brand strings and icons, the embedded theme, the agent brand icons, larger buttons, labeled panel toggles, the status bar view buttons, the Grok sign-in on the welcome page, the money rain, the Windows installer identity and, when requested, the Turkish translation pass. Expect 30-60 minutes on first build.
 
 ## Optional: local models
 
-If Ollama is present, add this block to `~/.config/zed/settings.json` to use local models for the inline assistant and commit messages:
+If Ollama is present, add this to `~/.config/zed/settings.json`:
 
 ```json
 {
@@ -275,13 +341,17 @@ If Ollama is present, add this block to `~/.config/zed/settings.json` to use loc
 }
 ```
 
+A vision-capable local model (any Ollama model reporting the vision capability) is picked up automatically as the offline fallback for `xyra-vision`.
+
 ## Troubleshooting
 
-- **Rename or icon blocked**: grant Terminal the App Management permission under System Settings > Privacy & Security > App Management, then rerun the script. Manual icon path: select the app in Finder, press cmd+I, click the small icon in the top left, open `assets/xyra-icon.png` in Preview, copy it with cmd+A cmd+C, then paste with cmd+V into the Get Info window.
-- **Menu bar still says "Zed"**: expected. The bundle is left untouched to keep the code signature and self-updater intact; only the name, icon and configuration are changed.
+- **An agent command hangs**: it was interactive or a server that never exits. The shipped agent instructions forbid both; if you hit it, kill the command and check that `~/.config/zed/settings.json` still sets `CI=1` for the agent servers.
+- **Rename or icon blocked**: grant Terminal the App Management permission under System Settings, Privacy and Security, App Management, then rerun the script.
+- **Vision or QA fails**: install Chrome or Chromium, or set `XYRA_CHROME` to a browser binary. The QA agent also needs Node.
+- **Topology is empty**: run `xyra-context index <repo>` first; the map renders the indexed graph.
 - **Grok models missing**: run `grok models` and confirm your subscription is active.
 - **Font not applied**: run `brew install --cask font-jetbrains-mono-nerd-font` and restart Xyra.
 
 ## License and distribution note
 
-This repository contains no Zed or Grok Build binaries and distributes none; installation happens from official sources. Zed is an open source project licensed under GPLv3 at [zed-industries/zed](https://github.com/zed-industries/zed); Xyra is a locally rebranded installation of it and is not affiliated with Zed Industries. Grok Build is distributed by xAI and subject to xAI's terms. The scripts and configuration files in this repository are MIT licensed.
+This repository contains no Zed or Grok Build binaries and distributes none; installation happens from official sources. Zed is an open source project licensed under GPLv3 at [zed-industries/zed](https://github.com/zed-industries/zed); Xyra is a locally rebranded build of it and is not affiliated with Zed Industries. Grok Build is distributed by xAI and subject to xAI's terms. Cytoscape.js, used by the topology view, is MIT licensed. The scripts and configuration files in this repository are MIT licensed.

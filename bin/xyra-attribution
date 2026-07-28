@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+HOOK_DIR="$HOME/.xyra/githooks"
+HOOK="$HOOK_DIR/prepare-commit-msg"
+CONFIG_KEY_NAME="xyra.coauthorName"
+CONFIG_KEY_EMAIL="xyra.coauthorEmail"
+
+usage() {
+  cat <<'EOF'
+Usage: xyra-attribution <command>
+
+  setup <name> <email>   register the Xyra identity and install the commit hook
+  install                install the hook using the already registered identity
+  uninstall              remove the hook and stop adding the trailer
+  status                 show the current identity, hook state and a sample trailer
+  trailer                print the trailer line, for scripts
+
+The hook appends a Co-authored-by trailer to commits made while XYRA_SESSION=1
+is set, which is the case for commands the Xyra agents run. Commits you make
+yourself in a plain terminal are untouched.
+
+The email must belong to a real GitHub account, otherwise GitHub shows the
+trailer but credits nobody. Use the account's noreply address, which looks like
+12345678+xyra-labs@users.noreply.github.com and is listed under Settings,
+Emails, on that account.
+EOF
+}
+
+identity() {
+  local name email
+  name="$(git config --global --get "$CONFIG_KEY_NAME" 2>/dev/null)"
+  email="$(git config --global --get "$CONFIG_KEY_EMAIL" 2>/dev/null)"
+  [ -n "$name" ] && [ -n "$email" ] || return 1
+  printf '%s\t%s\n' "$name" "$email"
+}
+
+write_hook() {
+  mkdir -p "$HOOK_DIR"
+  cat > "$HOOK" <<'HOOKEOF'
+#!/usr/bin/env bash
+set -uo pipefail
+
+MSG_FILE="$1"
+SOURCE="${2:-}"
+
+REPO_HOOK="$(git rev-parse --git-path hooks/prepare-commit-msg 2>/dev/null)"
+if [ -n "$REPO_HOOK" ] && [ -x "$REPO_HOOK" ] && [ "$(cd "$(dirname "$REPO_HOOK")" && pwd)" != "$(cd "$(dirname "$0")" && pwd)" ]; then
+  "$REPO_HOOK" "$@" || exit $?
+fi
+
+[ "${XYRA_SESSION:-}" = "1" ] || exit 0
+[ "$SOURCE" = "merge" ] && exit 0
+
+NAME="$(git config --global --get xyra.coauthorName)"
+EMAIL="$(git config --global --get xyra.coauthorEmail)"
+[ -n "$NAME" ] && [ -n "$EMAIL" ] || exit 0
+
+TRAILER="Co-authored-by: $NAME <$EMAIL>"
+grep -qiF "$TRAILER" "$MSG_FILE" && exit 0
+
+BODY="$(sed '/^#/d' "$MSG_FILE")"
+printf '%s' "$BODY" | grep -q '[^[:space:]]' || exit 0
+
+printf '\n%s\n' "$TRAILER" >> "$MSG_FILE"
+HOOKEOF
+  chmod +x "$HOOK"
+
+  local current
+  current="$(git config --global --get core.hooksPath 2>/dev/null)"
+  if [ -n "$current" ] && [ "$current" != "$HOOK_DIR" ]; then
+    echo "warning: global core.hooksPath already points at $current" >&2
+    echo "         copy $HOOK into that directory instead, or unset it first" >&2
+    return 1
+  fi
+  git config --global core.hooksPath "$HOOK_DIR"
+}
+
+case "${1:-status}" in
+  setup)
+    [ $# -eq 3 ] || { usage; exit 1; }
+    git config --global "$CONFIG_KEY_NAME" "$2"
+    git config --global "$CONFIG_KEY_EMAIL" "$3"
+    write_hook || exit 1
+    echo "Xyra attribution active."
+    echo "  trailer: Co-authored-by: $2 <$3>"
+    echo "  hook:    $HOOK"
+    echo "Commits made by Xyra agents now credit that account on GitHub."
+    ;;
+  install)
+    identity >/dev/null || { echo "no identity registered, run: xyra-attribution setup <name> <email>" >&2; exit 1; }
+    write_hook || exit 1
+    echo "hook installed: $HOOK"
+    ;;
+  uninstall)
+    rm -f "$HOOK"
+    if [ "$(git config --global --get core.hooksPath 2>/dev/null)" = "$HOOK_DIR" ]; then
+      git config --global --unset core.hooksPath
+    fi
+    echo "Xyra attribution removed."
+    ;;
+  trailer)
+    IFS=$'\t' read -r NAME EMAIL < <(identity) || { echo "no identity registered" >&2; exit 1; }
+    echo "Co-authored-by: $NAME <$EMAIL>"
+    ;;
+  status)
+    if IFS=$'\t' read -r NAME EMAIL < <(identity); then
+      echo "identity: $NAME <$EMAIL>"
+    else
+      echo "identity: not set (run: xyra-attribution setup \"Xyra\" <id+user@users.noreply.github.com>)"
+    fi
+    if [ -x "$HOOK" ] && [ "$(git config --global --get core.hooksPath 2>/dev/null)" = "$HOOK_DIR" ]; then
+      echo "hook:     installed and active"
+    else
+      echo "hook:     not installed (run: xyra-attribution install)"
+    fi
+    echo "scope:    commits created with XYRA_SESSION=1 in the environment"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac

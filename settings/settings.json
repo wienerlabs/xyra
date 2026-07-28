@@ -120,7 +120,8 @@
       "env": {
         "CI": "1",
         "NO_UPDATE_NOTIFIER": "1",
-        "ADBLOCK": "1"
+        "ADBLOCK": "1",
+        "XYRA_SESSION": "1"
       }
     },
     "Claude Code": {
@@ -133,7 +134,8 @@
       "env": {
         "CI": "1",
         "NO_UPDATE_NOTIFIER": "1",
-        "ADBLOCK": "1"
+        "ADBLOCK": "1",
+        "XYRA_SESSION": "1"
       }
     }
   },

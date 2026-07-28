@@ -385,3 +385,52 @@ class ViewsTest(unittest.TestCase):
         self.bus.record_decision(root, "architecture", "chose context api")
         entries = self.bus.read_journal(root)
         self.assertEqual(entries[-1]["summary"], "chose context api")
+
+
+class SkillsTest(unittest.TestCase):
+    def skills_dir(self):
+        return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "grok", "skills")
+
+    def test_every_skill_has_frontmatter(self):
+        for name in os.listdir(self.skills_dir()):
+            path = os.path.join(self.skills_dir(), name, "SKILL.md")
+            if not os.path.isfile(path):
+                continue
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            self.assertTrue(text.startswith("---"), name)
+            self.assertIn(f"name: {name}", text)
+            self.assertIn("description:", text)
+            self.assertNotIn("—", text, f"em dash in {name}")
+
+    def test_autonomy_and_terminal_skills_cover_the_rules(self):
+        with open(os.path.join(self.skills_dir(), "wiener-autonomy", "SKILL.md"), encoding="utf-8") as f:
+            autonomy = f.read()
+        for needle in ("sandbox_verify", "ui_check", "code_impact", "fleet_impact", "qa_run"):
+            self.assertIn(needle, autonomy)
+        with open(os.path.join(self.skills_dir(), "wiener-terminal", "SKILL.md"), encoding="utf-8") as f:
+            terminal = f.read()
+        for needle in ("vercel --yes", "nohup", "gh auth login", "next dev"):
+            self.assertIn(needle, terminal)
+
+
+class AttributionTest(unittest.TestCase):
+    def script(self):
+        return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "xyra-attribution")
+
+    def test_hook_is_session_scoped_and_chains(self):
+        with open(self.script(), encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn('[ "${XYRA_SESSION:-}" = "1" ] || exit 0', text)
+        self.assertIn("Co-authored-by:", text)
+        self.assertIn("REPO_HOOK", text)
+        self.assertIn("core.hooksPath", text)
+
+    def test_agent_servers_export_the_session_flag(self):
+        settings = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "settings", "settings.json")
+        with open(settings, encoding="utf-8") as f:
+            data = json.load(f)
+        for name, server in data["agent_servers"].items():
+            self.assertEqual(server["env"].get("XYRA_SESSION"), "1", name)
+            self.assertEqual(server["env"].get("CI"), "1", name)
