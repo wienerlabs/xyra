@@ -79,33 +79,33 @@ thread.
 
 \section{Crate topology}
 
-\begin{longtable}{@{}p{0.26\textwidth} p{0.66\textwidth}@{}}
+\begin{longtable}{@{}p{0.22\textwidth} p{0.10\textwidth} p{0.60\textwidth}@{}}
 \toprule
-\textbf{Crate} & \textbf{Responsibility} \\
+\textbf{Crate} & \textbf{Kind} & \textbf{Responsibility} \\
 \midrule
 \endfirsthead
 \toprule
-\textbf{Crate} & \textbf{Responsibility} \\
+\textbf{Crate} & \textbf{Kind} & \textbf{Responsibility} \\
 \midrule
 \endhead
-xyra-ui & Element model wrapper over the vendored UI framework, theme tokens, primitives \\
-xyra-text & Rope buffer, transactions, undo history, multi cursor selection algebra \\
-xyra-syntax & Parser host, incremental reparse, highlight queries, structural selection \\
-xyra-lang & Language server client, capability negotiation, diagnostics, completion \\
-xyra-project & Worktree model, ignore semantics, file watching, path resolution \\
-xyra-vcs & Git operations, status, diff, blame, staging, commit, branch \\
-xyra-term & Terminal grid, PTY supervision, escape parsing, search \\
-xyra-context & Symbol and import graph, retrieval, compression pipeline, budget solver \\
-xyra-memory & Durable stores, caches, journal, mission state, migrations \\
-xyra-agent & Agent process supervision, protocol clients, tool exposure, transcript capture \\
-xyra-mission & Ticket graph, supervisor loop, failure policy, budgets \\
-xyra-verify & Sandbox execution, visual verification, quality assurance sweeps, flags \\
-xyra-fleet & Multi repository registry, cross repository search and impact \\
-xyra-skills & Skill registry, resolution, injection, precedence \\
-xyra-ext & Extension host, capability enforcement, manifest validation \\
-xyra-proto & Message types shared between the interface and the core \\
-xyrad & Core service binary, wiring, supervision tree \\
-xyra & Interface binary, surfaces, keymap, command registry \\
+xyra-ui & library & Element model wrapper over the vendored UI framework, theme tokens, primitives \\
+xyra-text & library & Rope buffer, transactions, undo history, multi cursor selection algebra \\
+xyra-syntax & library & Parser host, incremental reparse, highlight queries, structural selection \\
+xyra-lang & library & Language server client, capability negotiation, diagnostics, completion \\
+xyra-project & library & Worktree model, ignore semantics, file watching, path resolution \\
+xyra-vcs & library & Git operations, status, diff, blame, staging, commit, branch \\
+xyra-term & library & Terminal grid, PTY supervision, escape parsing, search \\
+xyra-context & library & Symbol and import graph, retrieval, compression pipeline, budget solver \\
+xyra-memory & library & Durable stores, caches, journal, mission state, migrations \\
+xyra-agent & library & Agent process supervision, protocol clients, tool exposure, transcript capture \\
+xyra-mission & library & Ticket graph, supervisor loop, failure policy, budgets \\
+xyra-verify & library & Sandbox execution, visual verification, quality assurance sweeps, flags \\
+xyra-fleet & library & Multi repository registry, cross repository search and impact \\
+xyra-skills & library & Skill registry, resolution, injection, precedence \\
+xyra-ext & library & Extension host, capability enforcement, manifest validation \\
+xyra-proto & library & Message types shared between the interface and the core \\
+xyrad & binary & Core service binary, wiring, supervision tree \\
+xyra & binary & Interface binary, surfaces, keymap, command registry \\
 \bottomrule
 \caption{Crate responsibilities. One crate, one reason to change.}
 \end{longtable}

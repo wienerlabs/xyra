@@ -5,11 +5,19 @@
 
 Every dependency in Xyra must satisfy one rule: it must permit distribution of a binary
 whose corresponding source is not disclosed. In practice this means MIT, Apache~2.0, BSD,
-ISC, Zlib, Unlicense or CC0. It excludes GPL and LGPL in linked form, and it treats MPL~2.0
-as conditionally acceptable because its copyleft is file scoped rather than project scoped.
+ISC, Zlib, Unlicense or CC0. It excludes GPL and LGPL in linked form, and it excludes MPL~2.0
+as well, for the reason given below.
 
 This rule is what separates the standalone product from the current fork. It is not a
 philosophical preference, it is the precondition for a commercial edition.
+
+The allow list is exactly MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unlicense
+and CC0-1.0. MPL-2.0 is \req{not} on it. Its copyleft is file scoped rather than project
+scoped, which makes it survivable in principle, but a per file disclosure obligation inside a
+commercial binary is a compliance burden with no compensating benefit when a permissive
+alternative exists. A dependency outside the list enters only through an explicit entry in the
+exception list inside the license check script, which puts the decision in front of a reviewer
+rather than inside a transitive dependency nobody read.
 
 \section{Verified license position}
 
@@ -68,8 +76,8 @@ agent-client-protocol & Apache-2.0 & Protocol for external agent processes \\
 rmcp & Apache-2.0 & Model context protocol client and server \\
 wasmtime & Apache-2.0 WITH LLVM-exception & Sandboxed extension execution \\
 \midrule
-\multicolumn{3}{@{}l}{\textit{Conditional}}\\
-nucleo & MPL-2.0 & Fuzzy matching. File scoped copyleft. Acceptable if unmodified, otherwise replace with an MIT matcher. \\
+\multicolumn{3}{@{}l}{\textit{Interface support}}\\
+fuzzy-matcher & MIT & Fuzzy matching for pickers and the palette \\
 \bottomrule
 \caption{Verified license position of the proposed dependency set.}
 \end{longtable}

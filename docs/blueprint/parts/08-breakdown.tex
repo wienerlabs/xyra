@@ -83,9 +83,9 @@ Chapter~\ref{ch:prompts}. The Depends column lists issues that must land first.
 \endhead
 
 \multicolumn{3}{@{}l}{\textbf{PLA \quad Platform}}\\
-PLA-001 & Repository skeleton, workspace manifest, lint and format configuration & \\
+PLA-001 & Repository skeleton, workspace manifest, lint and format configuration, license allow list check, continuous integration definition & \\
 PLA-002 & Vendor the UI framework at a pinned revision with its license intact & PLA-001 \\
-PLA-003 & License allow list check in continuous integration & PLA-001 \\
+PLA-003 & Extend the license check to vendored third party trees and generate the aggregated notice file & PLA-002 \\
 PLA-004 & xyra-ui: element primitives, flex containers, text, icon, scroll area & PLA-002 \\
 PLA-005 & xyra-ui: theme tokens from Chapter six, light and dark & PLA-004 \\
 PLA-006 & xyra-ui: button, input, select, checkbox, toggle, slider with all states & PLA-005 \\
