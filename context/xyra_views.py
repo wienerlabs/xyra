@@ -870,7 +870,65 @@ def cmd_decide(argv):
     return 0
 
 
+def mission_md(root, state):
+    total = len([t for t in state["tickets"] if t["status"] != "split"])
+    done = sum(1 for t in state["tickets"] if t["status"] == "done")
+    pct = round(100 * done / total) if total else 0
+    filled = round(28 * done / total) if total else 0
+    progress = "█" * filled + "░" * (28 - filled)
+    elapsed = round((time.time() - state["started_at"]) / 60)
+    marks = {"done": "done", "running": "running now", "quarantined": "quarantined",
+             "retry": "retrying", "split": "split into smaller tickets", "pending": "waiting"}
+    rows = ["| # | ticket | status | attempts | commit |", "|---|---|---|---|---|"]
+    for t in state["tickets"]:
+        commit = (t.get("commit") or "")[:8]
+        rows.append(f"| {t['id']} | {t['title']} | {marks.get(t['status'], t['status'])} "
+                    f"| {t['attempts']} | `{commit}` |")
+    quarantined = [t for t in state["tickets"] if t["status"] == "quarantined"]
+    sections = [
+        ("Progress", f"`{progress}` **{done}/{total}** ({pct}%)\n\n"
+                     f"- status: **{state['status']}**\n"
+                     f"- sessions: {state['sessions']}\n"
+                     f"- elapsed: {elapsed} min\n"
+                     + (f"- current ticket: **{state['current']}**\n" if state.get("current") else "")
+                     + (f"- halted: {state['halt_reason']}\n" if state.get("halt_reason") else "")),
+        ("Tickets", "\n".join(rows)),
+    ]
+    if quarantined:
+        detail = "\n\n".join(f"**{t['id']}. {t['title']}**\n\n```\n"
+                              + (t["notes"][-1][:900] if t["notes"] else "") + "\n```"
+                              for t in quarantined)
+        sections.append(("Needs a human", detail))
+    sections.append(("Controls",
+                     "```bash\nxyra-mission status\nxyra-mission daemon   # keep going in the background\n"
+                     "xyra-mission stop     # halt after the current ticket\n```"))
+    return md_page("Mission control", state["objective"], sections)
+
+
+def cmd_mission(argv):
+    root = os.path.abspath(argv[0]) if argv and not argv[0].startswith("-") else os.getcwd()
+    watch = "--watch" in argv
+    import xyra_mission
+    while True:
+        state = xyra_mission.load_state(root)
+        if not state:
+            path = write_view("mission.md", md_page(
+                "Mission control", "no mission in this project",
+                [("", "Start one:\n\n```bash\nxyra-mission start \"your objective\"\n```")]), root)
+        else:
+            path = write_view("mission.md", mission_md(root, state), root)
+        if not watch:
+            open_view(path)
+            print(path)
+            return 0
+        if state and state["status"] not in ("running", "planned"):
+            print(path)
+            return 0
+        time.sleep(3)
+
+
 COMMANDS = {
+    "mission": cmd_mission,
     "hud": cmd_hud,
     "xray": cmd_xray,
     "topology": cmd_topology,
@@ -884,7 +942,7 @@ COMMANDS = {
 def main():
     argv = sys.argv[1:]
     if not argv or argv[0] not in COMMANDS:
-        print("usage: xyra-views {hud|xray|topology|timeline|secops|cockpit|decide} [path|args]",
+        print("usage: xyra-views {mission|hud|xray|topology|timeline|secops|cockpit|decide} [path|args]",
               file=sys.stderr)
         return 1
     return COMMANDS[argv[0]](argv[1:]) or 0

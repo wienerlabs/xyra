@@ -67,6 +67,7 @@ done
 "$PY" "$REPO_DIR/build/patch-ui-labels.py" "$SRC"
 "$PY" "$REPO_DIR/build/patch-xyra-panel-buttons.py" "$SRC"
 "$PY" "$REPO_DIR/build/patch-xyra-session.py" "$SRC"
+"$PY" "$REPO_DIR/build/patch-mission-panel.py" "$SRC"
 
 if [ "${XYRA_LOCAL_BUILD:-}" = "1" ]; then
   "$PY" - "$SRC" <<'PYEOF'

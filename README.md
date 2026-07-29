@@ -85,6 +85,31 @@ Defects are deduplicated and ranked by severity into a markdown report, then sum
 
 The agent instructions mandate the flow: verify in the sandbox before presenting, look at the UI after changing it, run impact analysis before touching shared contracts.
 
+## Missions: run a whole project unattended
+
+`xyra-mission` is the supervisor. You give it an objective once; it plans the work into a dependency ordered ticket list and then runs ticket after ticket to completion without asking you anything.
+
+```bash
+xyra-mission start "build the billing module with tests and a migration"
+xyra-mission daemon      # keep going in the background while you do something else
+xyra-mission status      # progress, ticket by ticket
+xyra-mission stop        # halt after the current ticket
+```
+
+The point is not one enormous session, which no context window can hold. Each ticket runs in a **fresh agent session** that sees only its own brief, so the hundredth ticket is as sharp as the first. Around that loop:
+
+- **Every ticket is proven before it counts.** The supervisor runs the project's tests in an isolated snapshot; only a green ticket gets committed, one commit per ticket.
+- **Failure has a policy, not a stop.** Retry, then hand the ticket to a rival vendor, then split it into smaller tickets through a replanner, and only then quarantine it and move on to the work that is still unblocked.
+- **The tree stays clean.** A failed attempt is reset before the next one, so nothing half finished leaks into the next ticket.
+- **It survives everything.** State lives in `.xyra/mission.json`; close the laptop, crash, reboot, then `xyra-mission run` continues exactly where it stopped.
+- **Budgets are hard.** Session count, wall clock hours, attempts per ticket and consecutive failures all cap the run, and `xyra-mission stop` halts it at any moment.
+
+### Mission control
+
+The **Mission panel** docks in the editor and refreshes itself while the supervisor works: progress bar, ticket list coloured by state, the ticket running right now, session count, and Resume and Stop buttons. Open it from the panel toggle or bind it to a key.
+
+`cmd-alt-i` opens the markdown mission control instead, with the full ticket table, the quarantine list with the failure that caused it, and the exact commands to steer the run.
+
 ## Agent visibility surfaces
 
 Six views render from real local data. Each has a task and a shortcut, and the main ones have a labeled button in the status bar.
@@ -205,6 +230,7 @@ Every commit made through Xyra carries the trailer: the app tags its own process
 - The visibility surfaces: `xyra-views` plus tasks and shortcuts for all six
 - `xyra-council`, `xyra-cosmos`, `xyra-watch`: adversarial coding, design orchestration and the always-on reviewer
 - `xyra-context`: semantic search plus the deterministic dependency graph, shared by every agent
+- `xyra-mission`: the autonomous project supervisor, plus its Mission panel in the editor
 - `xyra-attribution`: optional Xyra co-author credit on agent commits
 - `xyra-grok-keepalive`: keeps the Grok session alive so you sign in once
 - All seven Wiener skills, applied in every agent session
@@ -285,6 +311,8 @@ Tasks are available from the task picker (cmd-shift-p, then "task: spawn") and o
 | cmd-alt-h | Xyra: time travel |
 | cmd-alt-s | Xyra: security and cost |
 | cmd-alt-k | Xyra: decision cockpit |
+| cmd-alt-i | Xyra: mission control |
+| cmd-alt-n | Xyra: mission status |
 
 The agent panel is docked on the right. Panel toggles in the status bar carry their names (Agent, Terminal, Project, Git) instead of bare icons, and buttons are sized for comfortable clicking. The inline assistant lives on ctrl-enter. Multiple agent threads run side by side. When an agent finishes a task, the panel celebrates with a three second dollar rain, because shipped work should feel like it.
 

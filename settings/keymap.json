@@ -72,6 +72,18 @@
         {
           "task_name": "Xyra: verify in sandbox"
         }
+      ],
+      "cmd-alt-i": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: mission control"
+        }
+      ],
+      "cmd-alt-n": [
+        "task::Spawn",
+        {
+          "task_name": "Xyra: mission status"
+        }
       ]
     }
   }

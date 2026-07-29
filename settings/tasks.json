@@ -171,5 +171,45 @@
       "90"
     ],
     "reveal": "always"
+  },
+  {
+    "label": "Xyra: mission control",
+    "command": "xyra-views",
+    "args": [
+      "mission",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "never",
+    "hide": "always"
+  },
+  {
+    "label": "Xyra: mission status",
+    "command": "xyra-mission",
+    "args": [
+      "status",
+      "--path",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Xyra: mission resume",
+    "command": "xyra-mission",
+    "args": [
+      "daemon",
+      "--path",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "always"
+  },
+  {
+    "label": "Xyra: mission stop",
+    "command": "xyra-mission",
+    "args": [
+      "stop",
+      "--path",
+      "$ZED_WORKTREE_ROOT"
+    ],
+    "reveal": "always"
   }
 ]
