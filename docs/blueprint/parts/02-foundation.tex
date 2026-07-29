@@ -11,8 +11,10 @@ as well, for the reason given below.
 This rule is what separates the standalone product from the current fork. It is not a
 philosophical preference, it is the precondition for a commercial edition.
 
-The allow list is exactly MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unlicense
-and CC0-1.0. MPL-2.0 is \req{not} on it. Its copyleft is file scoped rather than project
+The allow list is exactly MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unlicense,
+CC0-1.0 and Unicode-3.0. The last entry is not a concession: the Unicode license carries no
+copyleft, and the internationalisation family that arrives through url and idna is
+unavoidable in any project that parses a link or normalises text. MPL-2.0 is \req{not} on it. Its copyleft is file scoped rather than project
 scoped, which makes it survivable in principle, but a per file disclosure obligation inside a
 commercial binary is a compliance burden with no compensating benefit when a permissive
 alternative exists. A dependency outside the list enters only through an explicit entry in the
@@ -101,10 +103,19 @@ imposes no disclosure obligation and no upstream coupling beyond the version we 
 \section{Dependency strategy}
 
 \begin{description}[style=nextline,leftmargin=0pt]
-  \item[Vendor and pin the UI framework.] gpui is vendored into the repository at a pinned
-  revision under its Apache~2.0 license with attribution preserved. Upstream changes are
-  merged deliberately, never automatically. This removes the rebase treadmill that
-  characterises the fork.
+  \item[Pin the UI framework to its published release.] gpui is taken from the registry at an
+  exact published version under Apache~2.0, not from the upstream editor's source tree. This
+  distinction is load bearing and was discovered while implementing it: in that tree the path
+  \ctl{gpui} to \ctl{sum\_tree} to \ctl{ztracing} reaches GPL-3.0-or-later code, which would
+  put a disclosure obligation on this binary and defeat the reason the standalone product
+  exists. The published crate does not carry that edge. Upstream versions are adopted
+  deliberately, never automatically, which removes the rebase treadmill that characterises the
+  fork.
+
+  \item[Judge a dependency by whether it ships.] A build dependency executes during
+  compilation and never links into the artefact, so its obligations do not follow the binary.
+  The gate records such cases as named exceptions carrying their reason rather than widening
+  the allow list for everything.
 
   \item[Wrap every third party boundary.] Editor code never calls gpui directly. It calls
   \ctl{xyra-ui}, a thin internal crate that re-exports the element model we actually use.
