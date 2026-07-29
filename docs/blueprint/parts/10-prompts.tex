@@ -1,0 +1,308 @@
+\chapter{Generation Prompts}
+\label{ch:prompts}
+
+This chapter turns the document into code. Each prompt is written to be pasted into an agent
+session together with this document. They assume the agent can read files, run commands and
+create commits, and they assume nothing else.
+
+\section{Rules of engagement}
+
+Prepend this to every session. It is the contract that keeps generated work consistent with
+the specification.
+
+\begin{lstlisting}
+You are implementing Xyra, an agentic IDE, from a written specification.
+
+The specification is authoritative. If your instinct disagrees with it, follow the
+specification and state the disagreement in your final message rather than silently
+deviating.
+
+Rules that apply to every session:
+1. Implement exactly one issue identifier from the register. Do not start another.
+2. Never add a dependency whose license is outside MIT, Apache-2.0, BSD, ISC, Zlib,
+   Unlicense or CC0. If you need one that is not, stop and report it.
+3. Write no code comments. Names carry the meaning. Rationale goes in the commit body.
+4. Never use an em dash anywhere: not in code, strings, documents or commit messages.
+5. Interface copy is sentence case. No capitalised words.
+6. Every control you add must already exist in the interface chapter. If it does not,
+   stop and report the gap rather than inventing a control.
+7. Every long running operation takes a budget and a cancellation token.
+8. Write tests, including at least one for the failure path. Run them. Report the result
+   with the exact command and its exit code.
+9. Leave the working tree building and the test suite green. Do not commit; report the
+   diff and let the supervisor commit.
+10. Never run an interactive command or a process that does not exit. Use the
+    non interactive flag, or start it detached and read the log.
+
+When you finish, report: the issue identifier, the files changed, the test command and
+its result, and anything in the specification you found ambiguous.
+\end{lstlisting}
+
+\section{Bootstrap prompt}
+
+Run once, on an empty repository.
+
+\begin{lstlisting}
+Read the attached blueprint. Create the repository skeleton described in the architecture
+chapter: a workspace manifest, one directory per crate listed in the crate topology table,
+a lint and format configuration, a license allow list check, and a continuous integration
+definition that runs format, lint, test and the license check.
+
+Every crate is created with a doc header stating its single responsibility as written in
+the crate topology table, and with a placeholder test so the suite is green from the first
+commit. Do not implement behaviour yet.
+
+This is issue PLA-001. Follow the rules of engagement.
+\end{lstlisting}
+
+\section{Category prompts}
+
+Each of the twelve categories has a lead prompt that establishes shared understanding before
+individual issues are executed against it.
+
+\subsection{Platform}
+\begin{lstlisting}
+You own the PLA category: the window shell, the element toolkit, the core service and
+the transport between them.
+
+Read the architecture chapter and the design system section of the interface chapter.
+Implement the design tokens exactly as tabulated: spacing, radius, control heights, text
+sizes, icon sizes. No arbitrary values anywhere in the toolkit.
+
+Then implement the controls listed in PLA-004 through PLA-012, each with its full state
+set: default, hover, active, focused, disabled, loading. Every control gets an accessible
+name and keyboard reachability. Every control gets an interface test through the harness.
+
+Work issue by issue in the order given in the register. One issue, one report.
+\end{lstlisting}
+
+\subsection{Text core}
+\begin{lstlisting}
+You own the TXT category: the rope buffer and everything that edits it.
+
+Correctness is the entire job here. Implement transactions such that undo restores both
+content and selection, coalescing is predictable, and concurrent transactions on one buffer
+are ordered rather than merged optimistically.
+
+Write property tests before implementation: random edit sequences must round trip through
+undo and redo, and the rope must agree with a naive string model on every operation.
+
+Start with TXT-001 and proceed in register order.
+\end{lstlisting}
+
+\subsection{Syntax}
+\begin{lstlisting}
+You own the SYN category: parsing and everything derived from a parse tree.
+
+The parse tree is the substrate for the context engine, not only for colouring. Symbol
+extraction in SYN-008 must produce, for every file, the ordered symbol list with full
+signatures, type declarations, documentation comments and outbound call edges, in the
+shape the context chapter calls a Structural Context Protocol record.
+
+Design that output format first, write golden tests for it against fixture files in each
+supported language, then implement.
+\end{lstlisting}
+
+\subsection{Language}
+\begin{lstlisting}
+You own the LNG category: language server integration.
+
+Supervision is as important as the features. A server that crashes restarts with backoff
+and the editor never stops working. A server that lacks a capability degrades that feature
+visibly rather than failing silently.
+
+Implement LNG-001 and LNG-002 fully before any feature issue, because every feature depends
+on correct capability negotiation.
+\end{lstlisting}
+
+\subsection{Project and version control}
+\begin{lstlisting}
+You own the PRJ category: the worktree, watching and git.
+
+Two invariants: the developer's edit always wins over any automated change, and no
+operation may leave the repository in a state the developer did not ask for. Every
+destructive operation is reversible or confirmed.
+
+Implement staging by hunk in PRJ-007 with the same data model the diff view uses, so the
+two surfaces cannot disagree.
+\end{lstlisting}
+
+\subsection{Terminal}
+\begin{lstlisting}
+You own the TRM category: terminal emulation and process supervision.
+
+TRM-007 is the issue that matters most: enforce the non interactive policy on commands
+invoked by agents. A command that would prompt is refused with the correct non interactive
+form stated, a process that does not exit is started detached with its log tailed, and a
+command producing no output for a bounded period is terminated.
+
+Implement TRM-001 and TRM-002 first, then TRM-007 before the remaining features.
+\end{lstlisting}
+
+\subsection{Context engine}
+\begin{lstlisting}
+You own the CTX category: the structural graph, the compression protocol, the budget
+solver and the retrieval pipeline.
+
+Read the context chapter completely before writing code. Implement in this order:
+structural extraction, then the SCP record at three levels, then token counting with a
+real tokeniser, then the budget solver, then delta encoding, then the assembly pipeline.
+Similarity search comes last and is always labelled as a fallback in its results.
+
+Build the evaluation harness described in CTX-040 early, not at the end. Every subsequent
+change to the engine must be justified by a measured improvement in first attempt success,
+compression ratio or escalation rate against the naive baseline.
+\end{lstlisting}
+
+\subsection{Agent layer}
+\begin{lstlisting}
+You own the AGT category: agent sessions, the tool surface and skills.
+
+Every tool has a typed contract, a capability gate and an audit record. No tool grants
+ambient authority. Write access is a property of the role as tabulated in the agent
+chapter, not of the model.
+
+AGT-017, the inactivity watchdog and hard kill path, is not optional and is not last. A
+hung agent process must never be able to block the interface or a mission.
+\end{lstlisting}
+
+\subsection{Mission}
+\begin{lstlisting}
+You own the MIS category: the supervisor that runs a project to completion unattended.
+
+The state machine is specified in the agent chapter. Implement it exactly, including the
+four step failure escalation: retry, vendor swap, split with bounded depth, quarantine and
+continue.
+
+Two hazards to handle explicitly. The working tree reset between attempts must spare the
+supervisor's own state directory, otherwise the supervisor destroys its own memory. And
+ticket splitting must be depth bounded, otherwise a persistently failing ticket splits
+forever.
+
+State is written atomically after every transition. Prove resumption with a test that kills
+the process mid ticket and continues.
+\end{lstlisting}
+
+\subsection{Verification}
+\begin{lstlisting}
+You own the VER category: everything that proves a change works.
+
+Verification never touches the developer's working tree. Snapshot the change set into a
+throwaway worktree and execute there.
+
+Implement VER-001 through VER-003 first, because the mission category depends on them.
+Then targeted test selection, then visual verification, then the adversarial sweep.
+
+Every verdict is structured, with severity ranked issues, because verdicts feed automatic
+fix loops rather than human reading.
+\end{lstlisting}
+
+\subsection{Fleet}
+\begin{lstlisting}
+You own the FLT category: multi repository operations.
+
+Registration comes from the developer's provider, never from a hand written file. Impact
+analysis must separate the repository that defines a contract from those that consume it,
+because that ordering is what makes a cross repository change safe.
+
+Each repository is verified independently before any linked change is prepared.
+\end{lstlisting}
+
+\subsection{Extensions}
+\begin{lstlisting}
+You own the EXT category: the extension host.
+
+Extensions are untrusted. No ambient filesystem access, no network unless granted, an
+explicit capability list in the manifest, and a trap disables the extension for the
+session without affecting the editor.
+
+Implement EXT-002 and EXT-010 before any contribution point, because isolation is the
+feature.
+\end{lstlisting}
+
+\section{Issue prompt template}
+
+For each issue in the register, substitute and run.
+
+\begin{lstlisting}
+Implement issue {ID}: {title}.
+
+Read these sections of the blueprint before writing code:
+- the architecture chapter section for {crate}
+- the interface chapter section for {surface}, if this issue touches the interface
+- the user stories that reference this capability: {story ids}
+
+Acceptance:
+- The behaviour matches the specification exactly.
+- Tests exist including a failure path test, and they pass.
+- No control exists that is not specified in the interface chapter.
+- No dependency was added outside the license allow list.
+- The operation has a budget and a cancellation path if it can run long.
+- Accessible name and keyboard reachability exist for every new control.
+
+Dependencies already landed: {depends}.
+Follow the rules of engagement. Report when done.
+\end{lstlisting}
+
+\section{Self hosting prompt}
+
+The most efficient way to build Xyra is to use the existing Xyra mission supervisor to build
+it. Once the register is loaded as a ticket graph, the loop in the agent chapter applies to
+this project as it does to any other.
+
+\begin{lstlisting}
+Convert the issue register in the blueprint into a mission ticket graph. Each issue becomes
+one ticket: the identifier is the ticket identifier, the issue text is the scope, and the
+Depends column becomes the dependency list.
+
+Then run the mission to completion with these budgets: attempts per ticket three, split
+depth one, and a stop on five consecutive failures.
+
+For every ticket, the brief is the issue prompt template filled in from the register, with
+the rules of engagement prepended.
+
+Verification for this project is the workspace test suite plus the format and lint checks
+plus the license allow list check. A ticket counts as done only when all four pass in an
+isolated snapshot.
+\end{lstlisting}
+
+\section{Review prompt}
+
+Run against every diff before it is accepted, ideally on a different vendor from the one that
+wrote it.
+
+\begin{lstlisting}
+You are reviewing a diff produced by another vendor against a written specification.
+
+Check, in this order:
+1. Correctness. Does it do what the issue says, including the failure path.
+2. Specification fidelity. Does any control, message or behaviour deviate from the
+   blueprint. Quote the deviation.
+3. Boundaries. Does it call across a layer in the wrong direction, or reach into another
+   category's crate.
+4. Security. Untrusted input treated as instruction, secrets in context, missing capability
+   gate, unbounded resource use.
+5. Conventions. Comments present, em dashes present, capitalised interface copy, arbitrary
+   spacing values instead of tokens.
+
+Return a structured verdict: severity per finding, file and line, and a blocking decision.
+Default to blocking when uncertain about correctness or security.
+\end{lstlisting}
+
+\section{Specification amendment prompt}
+
+The document is the source of truth, which means it must be maintained as the code teaches
+you things.
+
+\begin{lstlisting}
+While implementing {ID} you found that the blueprint is wrong, ambiguous or incomplete.
+
+Do not silently deviate. Produce an amendment:
+- The exact section and sentence that is wrong.
+- What the code must do instead, and why the specification could not have anticipated it.
+- Any other section that must change for the document to stay internally consistent.
+- The stories and issues affected.
+
+Emit the amendment as a patch to the blueprint source alongside the code change. The
+document and the code land together or not at all.
+\end{lstlisting}

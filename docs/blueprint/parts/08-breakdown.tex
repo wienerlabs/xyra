@@ -1,0 +1,367 @@
+\chapter{Work Breakdown and Issue Register}
+\label{ch:breakdown}
+
+\section{Categories}
+
+Work is partitioned into twelve categories. Each category maps to a crate set from
+Chapter~\ref{ch:architecture} and owns a slice of the interface from
+Chapter~\ref{ch:interface}. The partition is chosen so that two categories can be worked in
+parallel without editing the same files.
+
+\begin{longtable}{@{}p{0.06\textwidth} p{0.22\textwidth} p{0.30\textwidth} p{0.34\textwidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Category} & \textbf{Crates} & \textbf{Owns} \\
+\midrule
+\endhead
+PLA & Platform & xyra-ui, xyra-proto, xyra-memory, xyrad, xyra & Window, element model, service wiring, storage, packaging \\
+TXT & Text core & xyra-text & Rope, transactions, undo, selections \\
+SYN & Syntax & xyra-syntax & Parsing, highlighting, structural motion \\
+LNG & Language & xyra-lang & Language servers, diagnostics, completion, refactors \\
+PRJ & Project & xyra-project, xyra-vcs & Worktree, watching, git \\
+TRM & Terminal & xyra-term & Terminal grid, process supervision \\
+CTX & Context engine & xyra-context & Graph, retrieval, compression, budget solver \\
+AGT & Agent layer & xyra-agent, xyra-skills & Sessions, protocols, tools, skills \\
+MIS & Mission & xyra-mission & Ticket graph, supervisor, budgets, journal \\
+VER & Verification & xyra-verify & Sandbox, visual checks, sweeps, flags \\
+FLT & Fleet & xyra-fleet & Multi repository registry and operations \\
+EXT & Extensions & xyra-ext & Extension host, capabilities, marketplace client \\
+\bottomrule
+\caption{Work categories and their ownership boundaries.}
+\end{longtable}
+
+\section{Dependency between categories}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  cat/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=8mm,minimum width=20mm,font=\scriptsize},
+  arr/.style={-{Stealth[length=1.8mm]},xyragrey}
+]
+\node[cat] (pla) at (0,0) {PLA};
+\node[cat,right=8mm of pla] (txt) {TXT};
+\node[cat,right=8mm of txt] (syn) {SYN};
+\node[cat,right=8mm of syn] (lng) {LNG};
+\node[cat,below=7mm of pla] (prj) {PRJ};
+\node[cat,right=8mm of prj] (trm) {TRM};
+\node[cat,right=8mm of trm] (ctx) {CTX};
+\node[cat,right=8mm of ctx] (agt) {AGT};
+\node[cat,below=7mm of prj] (ver) {VER};
+\node[cat,right=8mm of ver] (mis) {MIS};
+\node[cat,right=8mm of mis] (flt) {FLT};
+\node[cat,right=8mm of flt] (ext) {EXT};
+
+\draw[arr] (pla) -- (txt);
+\draw[arr] (txt) -- (syn);
+\draw[arr] (syn) -- (lng);
+\draw[arr] (pla) -- (prj);
+\draw[arr] (prj) -- (ctx);
+\draw[arr] (syn) -- (ctx);
+\draw[arr] (ctx) -- (agt);
+\draw[arr] (prj) -- (ver);
+\draw[arr] (agt) -- (mis);
+\draw[arr] (ver) -- (mis);
+\draw[arr] (ctx) -- (flt);
+\draw[arr] (pla) -- (trm);
+\draw[arr] (pla) to[out=-140,in=140] (ext);
+\end{tikzpicture}
+\caption{Category dependencies. Anything not connected can proceed in parallel.}
+\end{figure}
+
+\section{Issue register}
+
+Identifiers are stable and are referenced by the generation prompts in
+Chapter~\ref{ch:prompts}. The Depends column lists issues that must land first.
+
+\begin{longtable}{@{}p{0.09\textwidth} p{0.55\textwidth} p{0.28\textwidth}@{}}
+\toprule
+\textbf{ID} & \textbf{Issue} & \textbf{Depends} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Issue} & \textbf{Depends} \\
+\midrule
+\endhead
+
+\multicolumn{3}{@{}l}{\textbf{PLA \quad Platform}}\\
+PLA-001 & Repository skeleton, workspace manifest, lint and format configuration & \\
+PLA-002 & Vendor the UI framework at a pinned revision with its license intact & PLA-001 \\
+PLA-003 & License allow list check in continuous integration & PLA-001 \\
+PLA-004 & xyra-ui: element primitives, flex containers, text, icon, scroll area & PLA-002 \\
+PLA-005 & xyra-ui: theme tokens from Chapter six, light and dark & PLA-004 \\
+PLA-006 & xyra-ui: button, input, select, checkbox, toggle, slider with all states & PLA-005 \\
+PLA-007 & xyra-ui: list with virtualisation and keyboard navigation & PLA-004 \\
+PLA-008 & xyra-ui: table with sortable columns and sticky header & PLA-007 \\
+PLA-009 & xyra-ui: popover, dropdown, context menu, tooltip & PLA-006 \\
+PLA-010 & xyra-ui: modal dialog, confirmation, and focus trapping & PLA-009 \\
+PLA-011 & xyra-ui: toast and notification centre & PLA-009 \\
+PLA-012 & xyra-ui: progress bar, determinate and indeterminate, and the activity pulse & PLA-006 \\
+PLA-013 & Window shell: title bar, activity bar, docks, resizable splits & PLA-004 \\
+PLA-014 & Dock persistence: sizes, visibility and active panel per workspace & PLA-013 \\
+PLA-015 & xyra-proto: message types, versioning, backward compatible decoding & PLA-001 \\
+PLA-016 & xyrad service: supervision tree, graceful shutdown, restart policy & PLA-015 \\
+PLA-017 & Interface to service transport over a local socket with reconnect & PLA-016 \\
+PLA-018 & Projection dispatch with version stamps and stale frame rejection & PLA-017 \\
+PLA-019 & Intent routing from surfaces to the core reducer & PLA-018 \\
+PLA-020 & Settings: layered defaults, user and workspace, live reload & PLA-016 \\
+PLA-021 & Command registry and the command palette with three modes & PLA-009 \\
+PLA-022 & Keymap engine, rebinding, conflict detection, chord support & PLA-021 \\
+PLA-023 & Storage layer: embedded stores, migrations, integrity checks & PLA-016 \\
+PLA-024 & Crash reporting that is local by default and opt in for upload & PLA-016 \\
+PLA-025 & Packaging for macOS, Linux and Windows with signed artefacts & PLA-013 \\
+PLA-026 & Update channel with staged rollout and rollback & PLA-025 \\
+PLA-027 & Accessibility layer: names, roles, focus order, screen reader output & PLA-006 \\
+PLA-028 & Internationalisation scaffolding with externalised strings & PLA-006 \\
+PLA-029 & Headless mode for the core service to run without a window & PLA-016 \\
+PLA-030 & Interface test harness driving projections and asserting intents & PLA-019 \\
+
+\multicolumn{3}{@{}l}{\textbf{TXT \quad Text core}}\\
+TXT-001 & Rope buffer with line and character indexing & PLA-001 \\
+TXT-002 & Edit transactions with grouping and coalescing & TXT-001 \\
+TXT-003 & Undo and redo history with selection restoration & TXT-002 \\
+TXT-004 & Multi cursor and multi selection algebra & TXT-002 \\
+TXT-005 & Word, line, paragraph and bracket motions & TXT-004 \\
+TXT-006 & Encoding detection and line ending preservation & TXT-001 \\
+TXT-007 & Large file strategy with chunked loading and disabled features & TXT-001 \\
+TXT-008 & Search within a buffer, literal and regular expression & TXT-001 \\
+TXT-009 & Replace with preview and per match acceptance & TXT-008 \\
+TXT-010 & Soft wrap, virtual whitespace and indentation guides & TXT-001 \\
+TXT-011 & External change detection and non destructive reload & TXT-001 \\
+TXT-012 & Buffer transaction fuzz harness & TXT-003 \\
+
+\multicolumn{3}{@{}l}{\textbf{SYN \quad Syntax}}\\
+SYN-001 & Parser host with incremental reparse on edit & TXT-002 \\
+SYN-002 & Grammar loading and per language configuration & SYN-001 \\
+SYN-003 & Highlight queries mapped to theme tokens & SYN-002, PLA-005 \\
+SYN-004 & Bracket matching and auto closing pairs & SYN-001 \\
+SYN-005 & Structural selection expand and shrink & SYN-001 \\
+SYN-006 & Code folding by syntax node & SYN-001 \\
+SYN-007 & Indentation rules derived from the grammar & SYN-002 \\
+SYN-008 & Symbol extraction feeding the context engine & SYN-001 \\
+SYN-009 & Injection support for embedded languages & SYN-002 \\
+SYN-010 & Breadcrumb path from the parse tree & SYN-008 \\
+
+\multicolumn{3}{@{}l}{\textbf{LNG \quad Language}}\\
+LNG-001 & Language server process supervision with restart backoff & PLA-016 \\
+LNG-002 & Capability negotiation and per server feature gating & LNG-001 \\
+LNG-003 & Diagnostics ingestion, deduplication and gutter rendering & LNG-002 \\
+LNG-004 & Completion with resolve, snippets and sorting & LNG-002 \\
+LNG-005 & Hover with type information rendered as structured content & LNG-002 \\
+LNG-006 & Go to definition, declaration, type definition and implementation & LNG-002 \\
+LNG-007 & Find references with a grouped result surface & LNG-006 \\
+LNG-008 & Rename symbol with a preview of every edit & LNG-007 \\
+LNG-009 & Code actions and quick fixes & LNG-003 \\
+LNG-010 & Formatting on save and on demand & LNG-002 \\
+LNG-011 & Signature help & LNG-004 \\
+LNG-012 & Call hierarchy exposed to the context engine & LNG-006 \\
+LNG-013 & Workspace symbol search & LNG-002 \\
+LNG-014 & Inlay hints with a density control & LNG-002 \\
+LNG-015 & Language server output surface for debugging & LNG-001 \\
+
+\multicolumn{3}{@{}l}{\textbf{PRJ \quad Project and version control}}\\
+PRJ-001 & Worktree model with ignore aware traversal & PLA-016 \\
+PRJ-002 & Filesystem watching with debouncing and rename detection & PRJ-001 \\
+PRJ-003 & Explorer tree with keyboard navigation and multi select & PRJ-001, PLA-007 \\
+PRJ-004 & File operations: create, rename, move, delete with undo where possible & PRJ-003 \\
+PRJ-005 & Project wide search with structural filters & PRJ-001 \\
+PRJ-006 & Search and replace across files with per match acceptance & PRJ-005 \\
+PRJ-007 & Git status, staging and unstaging by hunk & PRJ-001 \\
+PRJ-008 & Commit surface with message assistance and amend & PRJ-007 \\
+PRJ-009 & Branch list, switch, create and delete & PRJ-007 \\
+PRJ-010 & Diff view, split and unified, with word level highlighting & PRJ-007 \\
+PRJ-011 & Blame with commit detail on hover & PRJ-007 \\
+PRJ-012 & Conflict resolution surface & PRJ-010 \\
+PRJ-013 & Stash operations & PRJ-007 \\
+PRJ-014 & Remote operations: fetch, pull, push with authentication handling & PRJ-009 \\
+PRJ-015 & History view feeding the Atlas history mode & PRJ-011 \\
+
+\multicolumn{3}{@{}l}{\textbf{TRM \quad Terminal}}\\
+TRM-001 & Terminal grid and escape sequence handling & PLA-004 \\
+TRM-002 & Process supervision with environment construction & PLA-016 \\
+TRM-003 & Multiple terminals with tabs and splits & TRM-001 \\
+TRM-004 & Scrollback, search and copy semantics & TRM-001 \\
+TRM-005 & Task runner definitions and execution & TRM-002 \\
+TRM-006 & Output capture available to agents as context & TRM-002, CTX-020 \\
+TRM-007 & Non interactive policy enforcement on agent invoked commands & TRM-002 \\
+TRM-008 & Detached process management for servers with log tailing & TRM-002 \\
+
+\multicolumn{3}{@{}l}{\textbf{CTX \quad Context engine}}\\
+CTX-001 & Import parsing for TypeScript and JavaScript & SYN-008 \\
+CTX-002 & Import parsing for Python & SYN-008 \\
+CTX-003 & Import parsing for Rust & SYN-008 \\
+CTX-004 & Import parsing for Go and Java & SYN-008 \\
+CTX-005 & Import resolution to concrete paths with alias support & CTX-001 \\
+CTX-006 & Symbol table with kind, visibility and location & SYN-008 \\
+CTX-007 & Call edge extraction per symbol & SYN-008 \\
+CTX-008 & Graph storage with incremental update on file change & CTX-005, PRJ-002 \\
+CTX-009 & Impact closure query with transitive distance & CTX-008 \\
+CTX-010 & Neighbourhood query for a single file & CTX-008 \\
+CTX-011 & Test to source mapping from imports & CTX-008 \\
+CTX-012 & Test to source mapping refined by execution traces & CTX-011, VER-004 \\
+CTX-013 & SCP record generation at levels zero, one and two & SYN-008 \\
+CTX-014 & SCP body handles with content addressed retrieval & CTX-013 \\
+CTX-015 & Token counting with the target model tokeniser & PLA-001 \\
+CTX-016 & Budget solver with value, cost, redundancy and dependency & CTX-015, CTX-013 \\
+CTX-017 & Inclusion floors that cannot be evicted by the solver & CTX-016 \\
+CTX-018 & Delta encoding dictionary per mission & CTX-014 \\
+CTX-019 & Stable emission order for provider prefix cache alignment & CTX-016 \\
+CTX-020 & Context assembly pipeline end to end & CTX-019, CTX-018 \\
+CTX-021 & Chunking strategy aligned to syntax nodes & SYN-008 \\
+CTX-022 & Local embedding generation with incremental content hashing & CTX-021 \\
+CTX-023 & Vector index, quantised and memory mapped & CTX-022 \\
+CTX-024 & Similarity search labelled as a fallback in results & CTX-023 \\
+CTX-025 & Local cross encoder reranking of the candidate set & CTX-024 \\
+CTX-026 & Speculative prefetch driven by graph prediction & CTX-009 \\
+CTX-027 & Attention accounting per file for the heat map & CTX-020 \\
+CTX-028 & Context export and replay for debugging & CTX-020 \\
+CTX-029 & Compression and escalation metrics with a reporting surface & CTX-020 \\
+CTX-030 & Integration: version history as context & PRJ-011 \\
+CTX-031 & Integration: language server hover and hierarchy as context & LNG-012 \\
+CTX-032 & Integration: documentation fetch by library and version & CTX-020 \\
+CTX-033 & Integration: issue tracker linkage & CTX-020 \\
+CTX-034 & Integration: runtime traces and logs & TRM-006 \\
+CTX-035 & Integration: database schema and pending migrations & CTX-020 \\
+CTX-036 & Integration: design assets and tokens & CTX-020 \\
+CTX-037 & Integration: dependency registry metadata and advisories & CTX-020 \\
+CTX-038 & Capability toggles and provenance display for every integration & CTX-020 \\
+CTX-039 & Secret redaction before any context leaves the machine & CTX-020 \\
+CTX-040 & Context evaluation harness measuring first attempt success & CTX-029 \\
+
+\multicolumn{3}{@{}l}{\textbf{AGT \quad Agent layer}}\\
+AGT-001 & Agent process supervision with environment construction & PLA-016 \\
+AGT-002 & Agent client protocol transport and session lifecycle & AGT-001 \\
+AGT-003 & Model context protocol client for external tool servers & AGT-001 \\
+AGT-004 & Tool surface exposure with capability gating & AGT-002 \\
+AGT-005 & Tool: read file at a requested tier & CTX-013 \\
+AGT-006 & Tool: structural search with labelled fallback & CTX-024 \\
+AGT-007 & Tool: impact and graph queries & CTX-009 \\
+AGT-008 & Tool: edit as a reversible transaction & TXT-002 \\
+AGT-009 & Tool: run tests inside a snapshot & VER-002 \\
+AGT-010 & Tool: verify the current change set & VER-003 \\
+AGT-011 & Tool: render check and design comparison & VER-006 \\
+AGT-012 & Tool: quality sweep & VER-008 \\
+AGT-013 & Tool: fleet search and impact & FLT-003 \\
+AGT-014 & Tool: journal a decision & MIS-014 \\
+AGT-015 & Tool: escalate a decision to the developer & MIS-016 \\
+AGT-016 & Transcript capture streamed to disk & AGT-002 \\
+AGT-017 & Inactivity watchdog and hard kill path & AGT-001 \\
+AGT-018 & Role definitions with distinct mandates and tool grants & AGT-004 \\
+AGT-019 & Vendor routing per role with a runtime switch & AGT-018 \\
+AGT-020 & Skill registry with workspace, user and bundled precedence & PLA-020 \\
+AGT-021 & Skill injection into sessions with provenance recorded & AGT-020 \\
+AGT-022 & Bundled skills: autonomy, terminal, conventions, review, safety, shipping & AGT-021 \\
+AGT-023 & Inline agent prompt at the cursor & AGT-002 \\
+AGT-024 & Agent range tracking with accept and revert & TXT-002, AGT-023 \\
+AGT-025 & Stale range detection when the developer edits concurrently & AGT-024 \\
+AGT-026 & Council: parallel lens execution with structured verdicts & AGT-019 \\
+AGT-027 & Council: policy as code per repository and per path & PLA-020 \\
+AGT-028 & Council: consensus modes across multiple reviewers & AGT-026 \\
+AGT-029 & Verdict cache keyed by content hash & AGT-026 \\
+AGT-030 & Interchange export of verdicts for external scanning & AGT-026 \\
+
+\multicolumn{3}{@{}l}{\textbf{MIS \quad Mission}}\\
+MIS-001 & Ticket schema, graph storage and atomic state persistence & PLA-023 \\
+MIS-002 & Planner invocation producing a dependency ordered graph & AGT-018 \\
+MIS-003 & Plan review surface before execution & MIS-002 \\
+MIS-004 & Ready ticket selection respecting dependencies & MIS-001 \\
+MIS-005 & Fresh session execution per ticket with a compiled brief & AGT-002, CTX-020 \\
+MIS-006 & Verification gate before a ticket counts as done & VER-003 \\
+MIS-007 & Commit per verified ticket with a structured message & PRJ-008 \\
+MIS-008 & Retry policy with attempt accounting & MIS-005 \\
+MIS-009 & Vendor swap on retry & AGT-019 \\
+MIS-010 & Replanner producing child tickets with bounded depth & MIS-002 \\
+MIS-011 & Quarantine with failure capture and continuation & MIS-008 \\
+MIS-012 & Working tree reset between attempts that spares supervisor state & PRJ-007 \\
+MIS-013 & Budget enforcement across sessions, time, attempts and failures & MIS-001 \\
+MIS-014 & Decision journal anchored to commits & MIS-007 \\
+MIS-015 & Stop, pause and resume with durable state & MIS-001 \\
+MIS-016 & Escalation as structured decision cards & PLA-010 \\
+MIS-017 & Background supervisor surviving interface restarts & PLA-029 \\
+MIS-018 & Crash resume from durable state & MIS-001 \\
+MIS-019 & Event stream published for the Theatre and the status bar & PLA-018 \\
+MIS-020 & Mission Control surface with every control from Chapter six & PLA-013 \\
+MIS-021 & Ticket detail: brief, diff, verification output, transcript & MIS-020 \\
+MIS-022 & Manual ticket editing, insertion, reordering and skipping & MIS-020 \\
+MIS-023 & End of mission cockpit summary with an explicit approval gate & MIS-014 \\
+MIS-024 & Mission templates for recurring objectives & MIS-002 \\
+
+\multicolumn{3}{@{}l}{\textbf{VER \quad Verification}}\\
+VER-001 & Runner detection across common project types & PRJ-001 \\
+VER-002 & Isolated snapshot execution in a throwaway worktree & PRJ-007 \\
+VER-003 & Verification verdict with command, exit code and output tail & VER-002 \\
+VER-004 & Targeted test selection from the test mapping & CTX-011 \\
+VER-005 & Warm worktree pool to remove setup cost & VER-002 \\
+VER-006 & Headless render and screenshot capture & PLA-016 \\
+VER-007 & Visual verdict with severity ranked issues & VER-006 \\
+VER-008 & Adversarial application sweep with a crawler and input generation & VER-006 \\
+VER-009 & Accessibility auditing during the sweep & VER-008 \\
+VER-010 & Defect deduplication and severity ranking & VER-008 \\
+VER-011 & Repair loop that fixes inside the snapshot and reverifies & MIS-008 \\
+VER-012 & Security pattern flags with file and line & PRJ-001 \\
+VER-013 & Cost pattern flags for expensive constructs & PRJ-001 \\
+VER-014 & Verification Deck surface with every control from Chapter six & PLA-013 \\
+VER-015 & Verification history filterable by ticket & MIS-021 \\
+VER-016 & Flake detection across repeated runs & VER-003 \\
+
+\multicolumn{3}{@{}l}{\textbf{FLT \quad Fleet}}\\
+FLT-001 & Repository registry with roles and local paths & PLA-020 \\
+FLT-002 & Provider listing and cloning of selected repositories & FLT-001 \\
+FLT-003 & Cross repository search & CTX-008 \\
+FLT-004 & Cross repository impact separating definition from consumption & FLT-003 \\
+FLT-005 & Sequenced execution across repositories with independent verification & MIS-005 \\
+FLT-006 & Linked change preparation across repositories & PRJ-014 \\
+FLT-007 & Fleet scope in Atlas & FLT-004 \\
+
+\multicolumn{3}{@{}l}{\textbf{EXT \quad Extensions}}\\
+EXT-001 & Extension manifest schema and validation & PLA-020 \\
+EXT-002 & Sandboxed execution host with a capability list & PLA-016 \\
+EXT-003 & Host interface: commands, surfaces, settings contributions & EXT-002 \\
+EXT-004 & Grammar and language contributions & SYN-002 \\
+EXT-005 & Theme contributions & PLA-005 \\
+EXT-006 & Tool contributions exposed to agents under capability control & AGT-004 \\
+EXT-007 & Context integration contributions & CTX-038 \\
+EXT-008 & Local installation, enable, disable and removal & EXT-001 \\
+EXT-009 & Registry client with signature verification & EXT-008 \\
+EXT-010 & Failure isolation so an extension trap never affects the editor & EXT-002 \\
+\bottomrule
+\caption{Issue register. Identifiers are stable and referenced by the generation prompts.}
+\end{longtable}
+
+\section{Milestone composition}
+
+Milestones are defined by capability, not by date. A milestone is complete when every issue
+in it passes its acceptance criteria and the stories it claims are demonstrable end to end.
+
+\begin{longtable}{@{}p{0.14\textwidth} p{0.44\textwidth} p{0.36\textwidth}@{}}
+\toprule
+\textbf{Milestone} & \textbf{Capability delivered} & \textbf{Stories demonstrable} \\
+\midrule
+\endhead
+M0 Shell & Window, docks, palette, settings, service transport, storage & None yet, foundation only \\
+M1 Editor & Open, edit, save, syntax, search, git status and diff & S-01 partially, S-03 \\
+M2 Intelligence & Language servers, navigation, diagnostics, refactors & S-01, S-02 partially \\
+M3 Context & Graph, SCP, budget solver, retrieval, inspector & S-02, S-16, S-17 \\
+M4 Agent & Sessions, tools, inline prompt, ranges, council & S-04, S-05, S-06, S-20 \\
+M5 Verification & Sandbox, targeted tests, visual checks, sweeps, deck & S-04, S-12, S-13 \\
+M6 Mission & Supervisor, policy, budgets, journal, Mission Control & S-07 to S-11, S-18, S-19 \\
+M7 Fleet & Registry, cross repository impact and execution & S-14, S-15 \\
+M8 Platform & Packaging, updates, accessibility, extensions & S-21, S-22, S-23 to S-25 \\
+\bottomrule
+\caption{Milestones defined by demonstrable capability.}
+\end{longtable}
+
+\section{Definition of done}
+
+An issue is done when all of the following hold. This list is deliberately uniform so that it
+can be applied mechanically by a reviewer or by an automated gate.
+
+\begin{enumerate}
+  \item The behaviour matches this document, and any deviation is recorded as an amendment
+  to this document rather than left implicit in code.
+  \item Tests exist at the appropriate level and pass, including at least one test for the
+  failure path.
+  \item No control is reachable that is not specified in Chapter~\ref{ch:interface}.
+  \item Every long running operation has a budget and a cancellation path.
+  \item No new dependency was added outside the license allow list.
+  \item The interface remains responsive under the operation, verified by the harness.
+  \item Accessibility names and keyboard reachability exist for every new control.
+\end{enumerate}

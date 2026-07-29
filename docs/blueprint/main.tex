@@ -1,0 +1,124 @@
+\documentclass[11pt,a4paper,oneside]{report}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{microtype}
+\usepackage[margin=2.4cm,top=2.6cm,bottom=2.6cm]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,calc,backgrounds,decorations.pathreplacing}
+
+\definecolor{xyralime}{HTML}{7A9A00}
+\definecolor{xyraink}{HTML}{101410}
+\definecolor{xyragrey}{HTML}{5F6B52}
+\definecolor{xyrapanel}{HTML}{F2F5EA}
+\definecolor{xyraline}{HTML}{C9D4B4}
+\definecolor{xyrared}{HTML}{A33A3A}
+\definecolor{xyrablue}{HTML}{2F5D8C}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=xyralime,
+  urlcolor=xyrablue,
+  citecolor=xyralime,
+  pdftitle={Xyra Blueprint},
+  pdfauthor={Wiener Labs}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\textcolor{xyragrey}{Xyra Blueprint}}
+\fancyhead[R]{\small\textcolor{xyragrey}{\leftmark}}
+\fancyfoot[C]{\small\thepage}
+
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{xyraink}}
+  {\color{xyralime}\Large\chaptertitlename\ \thechapter}{12pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-10pt}{28pt}
+
+\newcommand{\req}[1]{\textcolor{xyralime}{\textbf{#1}}}
+\newcommand{\ctl}[1]{\texttt{\small #1}}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{xyraline},
+  backgroundcolor=\color{xyrapanel},
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false
+}
+
+\newenvironment{story}[1]{%
+  \par\medskip\noindent\textbf{\textcolor{xyralime}{#1}}\par\nopagebreak\smallskip%
+}{\par\medskip}
+
+\setlist[itemize]{itemsep=2pt,topsep=4pt}
+\setlist[enumerate]{itemsep=2pt,topsep=4pt}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+
+{\Huge\bfseries\color{xyraink} Xyra}\\[6pt]
+{\Large\color{xyralime} The Standalone Agentic IDE}\\[28pt]
+
+{\large Product, Architecture and Delivery Blueprint}\\[10pt]
+{\normalsize Wiener Labs}\\[36pt]
+
+\begin{tikzpicture}
+  \fill[xyralime] (0,0) circle (0.16);
+  \draw[xyralime,line width=1pt] (-2.6,0) -- (-0.3,0);
+  \draw[xyralime,line width=1pt] (0.3,0) -- (2.6,0);
+\end{tikzpicture}
+
+\vspace{30pt}
+\begin{minipage}{0.82\textwidth}
+\small\itshape\color{xyragrey}
+This document specifies Xyra as an independent product built on permissively licensed
+foundations. It covers the product thesis, the licensing strategy that makes commercial
+distribution possible, the full system architecture, the context compression and
+acceleration protocols that differentiate the editor, the agent orchestration layer,
+a screen by screen and control by control interface specification, the user stories that
+justify each surface, the complete work breakdown with an issue register, and the
+generation prompts that turn this document into running code.
+\end{minipage}
+
+\vfill
+{\small\color{xyragrey} Confidential. Internal planning document.}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+\input{parts/01-thesis}
+\input{parts/02-foundation}
+\input{parts/03-architecture}
+\input{parts/04-context}
+\input{parts/05-agents}
+\input{parts/06-interface}
+\input{parts/07-stories}
+\input{parts/08-breakdown}
+\input{parts/09-quality}
+\input{parts/10-prompts}
+\input{parts/11-appendix}
+
+\end{document}

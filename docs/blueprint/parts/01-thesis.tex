@@ -1,0 +1,168 @@
+\chapter{Product Thesis}
+\label{ch:thesis}
+
+\section{What Xyra is}
+
+Xyra is a desktop integrated development environment whose primary user is a developer
+working alongside autonomous agents. Every other editor treats the agent as a plugin
+bolted onto a text editing surface designed for a human typing character by character.
+Xyra inverts the relationship. The agent is a first class runtime with its own lifecycle,
+its own verification loop, its own memory, and its own presence in the interface. The text
+editor is one surface among several, and it is the surface a developer uses to inspect,
+correct and approve work that mostly originates elsewhere.
+
+The product exists because three assumptions behind current agentic editors are wrong.
+
+\begin{enumerate}
+  \item \req{Agents present unverified code.} A model writes a diff and the diff appears.
+  Whether it compiles, whether the tests pass, whether it breaks a caller three modules
+  away, all of that is discovered later by the human. Xyra refuses to display a change
+  that has not been executed.
+
+  \item \req{Context is treated as a bucket.} Editors stuff files into a prompt until the
+  window fills, then truncate. This wastes the majority of the budget on tokens that carry
+  no decision weight. Xyra treats context as a compression problem with a measurable
+  objective and spends its budget on the smallest representation that preserves the ability
+  to act correctly.
+
+  \item \req{One session equals one task.} Work stops when the window fills, and the human
+  restarts it. Xyra decomposes an objective into a dependency graph and runs each node in a
+  fresh session, so total work is unbounded by any single context window.
+\end{enumerate}
+
+\section{The one sentence}
+
+Xyra is the IDE where an autonomous team of agents ships a project while you sleep, and
+every line they wrote was proven before you ever saw it.
+
+\section{Design principles}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+  \item[Proof before presentation.] No diff reaches a human surface until it has been
+  executed against the project's own test or build command inside an isolated snapshot.
+  This is enforced by the runtime, not by prompting.
+
+  \item[Determinism where determinism is possible.] Import graphs, call graphs, symbol
+  tables and dependency closures are computed, not inferred. Probabilistic retrieval is a
+  fallback for questions that cannot be answered structurally, never the first resort.
+
+  \item[Local by default.] Indexing, embedding, graph construction, compression, screenshot
+  analysis, quality assurance runs and the entire mission state live on the developer's
+  machine. Network calls are limited to the model provider the developer chose.
+
+  \item[Every automated act is reversible and attributable.] One commit per unit of work,
+  a decision journal that records why, and a time travel surface that can branch from any
+  past decision.
+
+  \item[The interface exposes the machine's state, not a chat transcript.] What the agent
+  is reading, what it decided, what it verified, what it is about to do, and what it cost.
+  A transcript is the least informative possible view of an autonomous system.
+
+  \item[Nothing blocks on a human unless a human must decide.] The supervisor asks nothing
+  it can resolve. When a decision genuinely belongs to the developer, it arrives as a
+  structured choice with costs attached, never as a terminal question.
+\end{description}
+
+\section{Positioning}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Capability} & \textbf{Mainstream agentic editors} & \textbf{Xyra} \\
+\midrule
+Verification of generated code & Human runs it after the fact & Runtime executes it in an isolated snapshot before display \\
+Context assembly & Similarity search over chunks, truncation at the limit & Structural retrieval plus a compression pipeline with a token budget solver \\
+Long horizon work & Bounded by one context window & Unbounded, ticket graph across fresh sessions \\
+Visual correctness & Not modelled & Headless render, screenshot, vision verdict in the fix loop \\
+Cross repository change & Manual, one repository at a time & Fleet impact analysis and sequential execution across repositories \\
+Model relationship & Single vendor, metered & Multi vendor, adversarial review, flat rate capable \\
+Failure handling & Session ends, human restarts & Retry, vendor swap, ticket split, quarantine, continue \\
+State durability & Ephemeral chat & Durable mission state, decision journal, resumable after crash \\
+\bottomrule
+\end{tabularx}
+\caption{Positioning against the current generation of agentic editors.}
+\end{table}
+
+\section{Why a standalone product rather than a fork}
+
+The existing Xyra ships as a branded build of a GPL licensed editor. That path validated the
+product thesis quickly and it remains a legitimate distribution channel, but it imposes two
+permanent constraints. Source disclosure obligations follow every binary, which removes the
+option of a proprietary commercial edition. Upstream churn dictates the rebase schedule,
+which means engineering capacity is consumed by tracking another organisation's decisions.
+
+The standalone product removes both constraints by building on permissively licensed
+foundations only. Chapter~\ref{ch:foundation} enumerates the verified license position of
+every dependency in the proposed stack. The strategic consequence is that the same codebase
+can be released as a free edition and licensed as a commercial edition without any
+restructuring.
+
+\section{Product surfaces}
+
+Xyra is one application with six primary surfaces. Each is specified control by control in
+Chapter~\ref{ch:interface}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Surface} & \textbf{Purpose} \\
+\midrule
+Workbench & Editing, navigation, diffing, terminal, source control. The classic IDE surface. \\
+Mission Control & The autonomous supervisor: objective, ticket graph, progress, budget, controls. \\
+Agent Theatre & Live orchestration of the agent team, lane by lane, with the artefacts each produced. \\
+Context Inspector & What the agent is reading, weighted, with the ability to exclude and pin. \\
+Verification Deck & Sandbox runs, visual checks, quality assurance sweeps, security and cost flags. \\
+Atlas & Structural view of the codebase and the fleet: topology, impact, ownership, history. \\
+\bottomrule
+\end{tabularx}
+\caption{The six product surfaces.}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  node distance=6mm,
+  surf/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=9mm,minimum width=32mm,font=\small},
+  core/.style={draw=xyralime,line width=1pt,fill=white,rounded corners=2pt,minimum height=11mm,minimum width=44mm,font=\small\bfseries}
+]
+\node[core] (rt) {Xyra Runtime};
+\node[surf,above left=8mm and 14mm of rt] (wb) {Workbench};
+\node[surf,above=8mm of rt] (mc) {Mission Control};
+\node[surf,above right=8mm and 14mm of rt] (at) {Agent Theatre};
+\node[surf,below left=8mm and 14mm of rt] (ci) {Context Inspector};
+\node[surf,below=8mm of rt] (vd) {Verification Deck};
+\node[surf,below right=8mm and 14mm of rt] (al) {Atlas};
+\foreach \n in {wb,mc,at,ci,vd,al} \draw[xyragrey,-{Stealth[length=2mm]}] (rt) -- (\n);
+\end{tikzpicture}
+\caption{The runtime owns all state. Surfaces are projections of that state, never owners of it.}
+\end{figure}
+
+\section{Non goals}
+
+Stating what Xyra does not attempt is as load bearing as stating what it does.
+
+\begin{itemize}
+  \item Xyra is not a general purpose text editor competing on startup time for editing a
+  single configuration file. It is a project scale environment.
+  \item Xyra does not host models. It orchestrates model providers the developer already
+  pays for, including local ones.
+  \item Xyra does not attempt to replace the shell or the browser. It drives them and reads
+  their output.
+  \item Xyra does not ship an interactive debugger in the first product generation. Runtime
+  evidence reaches the agent through test output, traces and logs rather than through a
+  breakpoint session, which is why no debug adapter appears in the issue register and no
+  breakpoint control appears in the interface specification.
+  \item Xyra does not implement its own version control. It drives git.
+  \item Xyra does not implement real time collaborative editing. Multiple developers work
+  through version control, and the collaboration surface in the title bar is reserved for a
+  later generation.
+  \item Xyra does not target mobile or web delivery in the first product generation.
+\end{itemize}
+
+The commercial model, pricing and edition split are deliberately outside the scope of this
+document. Chapter~\ref{ch:foundation} establishes the licensing position that keeps every
+commercial option open, which is the only part of that decision that constrains engineering.

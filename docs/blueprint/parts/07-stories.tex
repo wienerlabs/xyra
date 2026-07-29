@@ -1,0 +1,311 @@
+\chapter{User Stories}
+\label{ch:stories}
+
+Every story below is written from a persona, states the value, and carries acceptance
+criteria that an implementation can be tested against. Each story names the surfaces from
+Chapter~\ref{ch:interface} it exercises, which is what keeps the interface specification
+honest: a surface with no story behind it should not exist.
+
+\section{Personas}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Persona} & \textbf{Context and pressure} \\
+\midrule
+Solo founder & Owns the entire stack, works in bursts, cannot afford a wrong autonomous change reaching production \\
+Staff engineer & Large existing codebase, cares about blast radius and review quality more than raw speed \\
+Team lead & Wants the team's standards enforced mechanically rather than in review comments \\
+Contractor & Enters unfamiliar repositories constantly, needs orientation before change \\
+Regulated team & Must show what changed, who decided it, what verified it, and what left the machine \\
+\bottomrule
+\end{tabularx}
+\caption{Personas driving the specification.}
+\end{table}
+
+\section{Orientation and understanding}
+
+\begin{story}{S-01 \quad Understand an unfamiliar repository}
+As a contractor, I open a repository I have never seen and want a structural orientation
+rather than a folder listing.
+\end{story}
+\begin{itemize}
+  \item Atlas opens on the topology view with modules grouped and entry points marked.
+  \item Structural queries are answerable before embedding indexing completes.
+  \item Selecting any node shows what it imports, what imports it, and the symbols it defines.
+  \item Surfaces: Atlas, Workbench.
+\end{itemize}
+
+\begin{story}{S-02 \quad Know the blast radius before changing a shared contract}
+As a staff engineer, before I rename a function used across the codebase I want the exact set
+of files that will break, not a guess.
+\end{story}
+\begin{itemize}
+  \item Impact for the symbol under the cursor returns the definition, importers by
+  transitive distance, and textual references.
+  \item The result is computed from parsed imports, and the interface states that it is
+  deterministic.
+  \item If a similarity fallback contributed any row, that row is labelled as a guess.
+  \item Surfaces: Workbench inline, Atlas.
+\end{itemize}
+
+\begin{story}{S-03 \quad See why a line exists before deleting it}
+As a staff engineer, when an agent proposes removing code I want the history that explains it.
+\end{story}
+\begin{itemize}
+  \item Blame is available inline without leaving the buffer.
+  \item The agent's context for that region included the commit message that introduced it.
+  \item The Context Inspector shows history as a contributing integration.
+  \item Surfaces: Workbench gutter, Context Inspector.
+\end{itemize}
+
+\section{Assisted change}
+
+\begin{story}{S-04 \quad Make a small change and trust it}
+As a solo founder, I ask for a small change and want to see only code that already runs.
+\end{story}
+\begin{itemize}
+  \item The change is executed against the project's own test command in an isolated snapshot
+  before it is displayed.
+  \item The displayed diff carries the verification verdict, the command and the exit code.
+  \item If verification failed, the failure is shown instead of the diff, with the exact
+  command to reproduce it.
+  \item My working tree was never modified during verification.
+  \item Surfaces: Workbench, Verification Deck.
+\end{itemize}
+
+\begin{story}{S-05 \quad Correct an agent range without losing my own edits}
+As any developer, I edit a file while an agent is working in it.
+\end{story}
+\begin{itemize}
+  \item My edit always wins; the agent range is marked stale rather than overwritten.
+  \item The stale range is reverified before it can be accepted.
+  \item Accept and revert are available per range, not only per file.
+  \item Surfaces: Workbench gutter and inline controls.
+\end{itemize}
+
+\begin{story}{S-06 \quad Get a rival opinion on a risky diff}
+As a team lead, before merging a change to a payment path I want an adversarial review from a
+different vendor.
+\end{story}
+\begin{itemize}
+  \item Review runs three lenses in parallel and returns a structured verdict with severities.
+  \item Repository policy can require extra lenses and a lower blocking threshold for
+  configured paths.
+  \item The verdict is stored in the journal and can be exported for an audit.
+  \item Surfaces: Verification Deck, Agent Theatre.
+\end{itemize}
+
+\section{Autonomous delivery}
+
+\begin{story}{S-07 \quad Ship a whole feature while I am away}
+As a solo founder, I state an objective, leave, and return to finished work.
+\end{story}
+\begin{itemize}
+  \item The objective is decomposed into a dependency ordered ticket graph I can review before
+  execution.
+  \item Each ticket executes in a fresh session, is verified, and is committed separately.
+  \item No prompt, question or confirmation is required for anything the supervisor can decide.
+  \item Progress is visible at a glance from the title bar without opening a panel.
+  \item Surfaces: Mission Control, Agent Theatre, Verification Deck.
+\end{itemize}
+
+\begin{story}{S-08 \quad Survive a failure without losing the run}
+As a solo founder, one ticket fails repeatedly and I do not want the mission to stop.
+\end{story}
+\begin{itemize}
+  \item The supervisor retries, then swaps vendor, then splits the ticket into smaller
+  children, then quarantines it.
+  \item Work that does not depend on the quarantined ticket continues.
+  \item The quarantine entry shows the failure text and the proposed split, and accepting the
+  split is one action.
+  \item Surfaces: Mission Control.
+\end{itemize}
+
+\begin{story}{S-09 \quad Close the laptop mid mission}
+As any developer, I close the machine during a long run.
+\end{story}
+\begin{itemize}
+  \item Mission state is durable and resuming continues from the last completed ticket.
+  \item At most the ticket in flight is lost, and its partial work is discarded rather than
+  committed.
+  \item Resuming requires one action and no re planning.
+  \item Surfaces: Mission Control.
+\end{itemize}
+
+\begin{story}{S-10 \quad Stop a mission immediately}
+As any developer, I decide the mission is going the wrong way.
+\end{story}
+\begin{itemize}
+  \item Stop halts after the ticket in flight, leaving the repository in a committed state.
+  \item Everything already committed remains, and the journal explains what each commit did.
+  \item Restarting with a corrected objective does not require undoing the good work.
+  \item Surfaces: Mission Control, title bar.
+\end{itemize}
+
+\begin{story}{S-11 \quad Cap the cost of autonomy}
+As a team lead, I need a hard ceiling on an unattended run.
+\end{story}
+\begin{itemize}
+  \item Sessions, wall clock hours, attempts per ticket and consecutive failures are all
+  capped and editable before and during a run.
+  \item Reaching a cap halts the mission with a stated reason rather than continuing.
+  \item Token and cost usage are visible while the run proceeds.
+  \item Surfaces: Mission Control, status bar.
+\end{itemize}
+
+\section{Correctness of appearance}
+
+\begin{story}{S-12 \quad Verify a page actually looks right}
+As a solo founder, after a styling change I want the machine to look at the result.
+\end{story}
+\begin{itemize}
+  \item The page is rendered headless, screenshotted, and judged against a stated intent.
+  \item The verdict is structured with issues ranked by severity, so it can drive a fix loop.
+  \item High severity issues trigger an automatic repair attempt before the change is
+  presented.
+  \item Surfaces: Verification Deck.
+\end{itemize}
+
+\begin{story}{S-13 \quad Match an intended design}
+As a team lead, the implementation must match the design export.
+\end{story}
+\begin{itemize}
+  \item A design image can be attached to a ticket or supplied ad hoc.
+  \item Comparison returns concrete differences: layout shifts, missing elements, wrong
+  colours, spacing.
+  \item Differences become tickets rather than a wall of prose.
+  \item Surfaces: Verification Deck, Mission Control.
+\end{itemize}
+
+\section{Scale and cross repository work}
+
+\begin{story}{S-14 \quad Change a contract across repositories}
+As a staff engineer, an endpoint changes in the backend and every consumer must follow.
+\end{story}
+\begin{itemize}
+  \item Fleet impact separates the defining repository from consuming ones.
+  \item Execution proceeds in dependency order, verifying each repository independently.
+  \item Related changes are prepared together and linked.
+  \item Surfaces: Atlas in fleet scope, Mission Control.
+\end{itemize}
+
+\begin{story}{S-15 \quad Register the fleet without editing configuration}
+As any developer, I want to pick my repositories from my provider rather than write a manifest.
+\end{story}
+\begin{itemize}
+  \item Repositories are listed from the authenticated provider.
+  \item Selected repositories that are missing locally are cloned.
+  \item Roles are proposed automatically and remain editable.
+  \item Surfaces: Atlas, first run.
+\end{itemize}
+
+\section{Control over the machine}
+
+\begin{story}{S-16 \quad See exactly what the agent is reading}
+As a staff engineer, when output is wrong I want to know what the model was looking at.
+\end{story}
+\begin{itemize}
+  \item Every included item is listed with its tier, its token cost and its inclusion reason.
+  \item Items included by similarity are labelled distinctly from structural inclusions.
+  \item Any item can be pinned or excluded, and exclusions persist for the workspace.
+  \item The exact assembled context can be exported and replayed.
+  \item Surfaces: Context Inspector.
+\end{itemize}
+
+\begin{story}{S-17 \quad Keep attention off the wrong files}
+As a staff engineer, generated files dominate attention and produce noise.
+\end{story}
+\begin{itemize}
+  \item The attention heat map shows which files accumulate agent reads.
+  \item Excluding a file or a glob is one action from the heat map.
+  \item The exclusion applies to future context assembly immediately, without reindexing.
+  \item Surfaces: Context Inspector.
+\end{itemize}
+
+\begin{story}{S-18 \quad Decide an architectural fork deliberately}
+As a team lead, when the agent reaches a real decision I want to choose with costs in front of me.
+\end{story}
+\begin{itemize}
+  \item The choice is presented as cards, each with measured cost and structural consequence.
+  \item Unblocked tickets continue while the choice is pending.
+  \item The decision and its rationale are recorded in the journal.
+  \item Surfaces: decision cards, Mission Control.
+\end{itemize}
+
+\begin{story}{S-19 \quad Return to a past decision and take the other branch}
+As a staff engineer, a decision three commits back turned out wrong.
+\end{story}
+\begin{itemize}
+  \item The journal shows decisions on a timeline anchored to commits.
+  \item Branching from a decision point is one action and does not disturb the current tree.
+  \item The alternative can be run as a new mission scoped to that branch.
+  \item Surfaces: Atlas history view, Mission Control.
+\end{itemize}
+
+\section{Team standards and compliance}
+
+\begin{story}{S-20 \quad Enforce house standards without review comments}
+As a team lead, every agent session in this repository must follow our conventions.
+\end{story}
+\begin{itemize}
+  \item Workspace skills override user skills of the same name.
+  \item The Context Inspector shows which skills were injected and from where.
+  \item A violation is caught by the reviewer lens rather than by a human in review.
+  \item Surfaces: Context Inspector, Verification Deck.
+\end{itemize}
+
+\begin{story}{S-21 \quad Prove what happened for an audit}
+As a regulated team, I must show what changed, who decided it and what verified it.
+\end{story}
+\begin{itemize}
+  \item Every ticket has a commit, a verification record and a journal entry.
+  \item Review verdicts are exportable in a machine readable interchange format.
+  \item Secrets are redacted before any content leaves the machine, and the redaction is
+  recorded.
+  \item Surfaces: Verification Deck, journal export.
+\end{itemize}
+
+\begin{story}{S-22 \quad Know what leaves the machine}
+As a regulated team, I must control every outbound integration.
+\end{story}
+\begin{itemize}
+  \item Each context expansion integration is a capability with an explicit toggle.
+  \item The Context Inspector shows which integrations contributed to a session.
+  \item A fully local configuration is selectable in first run and remains functional.
+  \item Surfaces: Context Inspector, settings.
+\end{itemize}
+
+\section{Reliability of the tool itself}
+
+\begin{story}{S-23 \quad Never lose the editor to an agent}
+As any developer, an agent process hangs.
+\end{story}
+\begin{itemize}
+  \item The interface stays responsive because agents run out of process.
+  \item An inactivity watchdog terminates the session and marks the ticket failed.
+  \item Editing, search and navigation continue unaffected.
+  \item Surfaces: all.
+\end{itemize}
+
+\begin{story}{S-24 \quad Never hang on an interactive command}
+As any developer, an agent runs a command that asks a question.
+\end{story}
+\begin{itemize}
+  \item Interactive commands are refused by policy, with the non interactive form stated.
+  \item Long running processes are started detached and their logs are read instead.
+  \item A command producing no output for a bounded period is terminated.
+  \item Surfaces: terminal, Agent Theatre.
+\end{itemize}
+
+\begin{story}{S-25 \quad Keep working while a mission runs}
+As any developer, I want to edit while the supervisor works.
+\end{story}
+\begin{itemize}
+  \item Verification runs in snapshots, so it never locks the working tree.
+  \item Indexing is bounded so the machine stays usable.
+  \item Conflicts between my edits and agent ranges are surfaced, never silently merged.
+  \item Surfaces: Workbench, Mission Control.
+\end{itemize}

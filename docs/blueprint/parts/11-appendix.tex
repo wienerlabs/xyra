@@ -1,0 +1,190 @@
+\appendix
+
+\chapter{Traceability}
+\label{ch:traceability}
+
+This chapter exists to keep the document honest. Every surface must be justified by a story,
+every story must be delivered by issues, and every issue must belong to a category with an
+owner. A row that cannot be completed is a defect in the specification, not a detail to be
+resolved later.
+
+\section{Story to issue to surface}
+
+\begin{longtable}{@{}p{0.07\textwidth} p{0.30\textwidth} p{0.36\textwidth} p{0.21\textwidth}@{}}
+\toprule
+\textbf{Story} & \textbf{Capability} & \textbf{Delivered by} & \textbf{Surface} \\
+\midrule
+\endhead
+S-01 & Orient in an unknown repository & CTX-008, CTX-010, FLT-007 & Atlas \\
+S-02 & Blast radius before a change & CTX-009, LNG-012, AGT-007 & Workbench, Atlas \\
+S-03 & History behind a line & PRJ-011, CTX-030 & Workbench, Inspector \\
+S-04 & Trust a small change & VER-002, VER-003, MIS-006 & Workbench, Deck \\
+S-05 & Concurrent human edit & AGT-024, AGT-025 & Workbench \\
+S-06 & Adversarial review & AGT-026, AGT-027, AGT-028 & Deck, Theatre \\
+S-07 & Unattended feature delivery & MIS-002 to MIS-007, MIS-020 & Mission Control \\
+S-08 & Failure without stopping & MIS-008 to MIS-011 & Mission Control \\
+S-09 & Survive a closed laptop & MIS-001, MIS-018 & Mission Control \\
+S-10 & Stop cleanly & MIS-015 & Mission Control, title bar \\
+S-11 & Cap the cost & MIS-013 & Mission Control, status bar \\
+S-12 & Visual correctness & VER-006, VER-007 & Deck \\
+S-13 & Match a design & VER-007, AGT-011 & Deck, Mission Control \\
+S-14 & Cross repository contract change & FLT-004, FLT-005, FLT-006 & Atlas, Mission Control \\
+S-15 & Register a fleet & FLT-001, FLT-002 & Atlas, first run \\
+S-16 & See what the agent reads & CTX-020, CTX-028, CTX-038 & Inspector \\
+S-17 & Redirect attention & CTX-027, CTX-038 & Inspector \\
+S-18 & Decide a fork deliberately & MIS-016, AGT-015 & Decision cards \\
+S-19 & Branch from a past decision & MIS-014, PRJ-015 & Atlas history \\
+S-20 & Enforce standards mechanically & AGT-020, AGT-021, AGT-027 & Inspector, Deck \\
+S-21 & Prove what happened & MIS-014, AGT-030, VER-015 & Deck, journal \\
+S-22 & Control what leaves the machine & CTX-038, CTX-039 & Inspector, settings \\
+S-23 & Agent hang cannot break the editor & AGT-017, PLA-016 & All \\
+S-24 & No interactive command hangs & TRM-007, TRM-008, AGT-022 & Terminal, Theatre \\
+S-25 & Work while a mission runs & VER-002, VER-005, AGT-025 & Workbench, Mission Control \\
+\bottomrule
+\caption{Every story maps to issues and to the surfaces that expose it.}
+\end{longtable}
+
+\section{Surface to category ownership}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Surface} & \textbf{Owning category} & \textbf{Contributing categories} \\
+\midrule
+Workbench & TXT & SYN, LNG, PRJ, AGT, PLA \\
+Mission Control & MIS & AGT, VER, PLA \\
+Agent Theatre & AGT & MIS, PLA \\
+Context Inspector & CTX & AGT, PLA \\
+Verification Deck & VER & MIS, PLA \\
+Atlas & CTX & PRJ, FLT, PLA \\
+Terminal, inside Workbench & TRM & PLA \\
+Settings and palette & PLA & all \\
+\bottomrule
+\end{tabularx}
+\caption{Surface ownership. One category owns each surface and is accountable for it.}
+\end{table}
+
+\chapter{Formats and Glossary}
+
+\section{Workspace state layout}
+
+\begin{lstlisting}
+.xyra/
+  mission.json        durable mission state, atomically replaced
+  mission.log         supervisor log, append only
+  journal.jsonl       decisions anchored to commits
+  fleet.json          registered repositories and roles
+  policy.toml         verification and review policy for this repository
+  settings.toml       workspace settings, layered over user settings
+  skills/             workspace skills, highest precedence
+  index/              symbol table, import graph, chunk metadata
+  vectors/            quantised embeddings, memory mapped
+  cache/              content addressed artefacts, safe to delete
+  views/              generated report artefacts
+\end{lstlisting}
+
+Deleting the entire directory must degrade the product to a cold start and must never
+corrupt the repository. This is a tested invariant, not an intention.
+
+\section{Ticket schema}
+
+\begin{lstlisting}
+{
+  "id": "MIS-007",
+  "title": "Commit per verified ticket",
+  "scope": "precise enough to act on without asking a question",
+  "files": ["crates/xyra-mission/src/commit.rs"],
+  "depends_on": ["MIS-006"],
+  "status": "pending | ready | running | verifying | done | retry | split | quarantined | skipped",
+  "depth": 0,
+  "attempts": 0,
+  "vendor_index": 0,
+  "commit": null,
+  "notes": []
+}
+\end{lstlisting}
+
+\section{Verification verdict schema}
+
+\begin{lstlisting}
+{
+  "ok": true,
+  "command": "cargo test --workspace",
+  "exit_code": 0,
+  "duration_ms": 41230,
+  "scope": "targeted | full",
+  "failures": [],
+  "output_tail": "...",
+  "snapshot": "throwaway worktree identifier"
+}
+\end{lstlisting}
+
+\section{Review verdict schema}
+
+\begin{lstlisting}
+{
+  "decision": "clean | approve_with_notes | block | inconclusive",
+  "lenses": ["correctness", "security", "conventions"],
+  "findings": [
+    {
+      "severity": "critical | high | medium | low",
+      "lens": "security",
+      "file": "crates/xyra-agent/src/tools.rs",
+      "line": 214,
+      "issue": "one sentence statement of the defect",
+      "evidence": "concrete inputs or state that produce it"
+    }
+  ],
+  "policy": "path rule that decided the blocking threshold"
+}
+\end{lstlisting}
+
+\section{Glossary}
+
+\begin{longtable}{@{}p{0.26\textwidth} p{0.66\textwidth}@{}}
+\toprule
+\textbf{Term} & \textbf{Definition} \\
+\midrule
+\endhead
+Accelerator & A mechanism that reduces latency or repeated work without changing which context items are selected \\
+Agent range & A contiguous region of a buffer written by an agent and not yet accepted by a human \\
+Atlas & The structural surface: topology, impact, ownership and history \\
+Budget solver & The component that selects context items under a token limit using value, cost, redundancy and dependency \\
+Capability & An explicitly granted permission for an integration, tool or extension \\
+Council & Adversarial review of a diff by a rival vendor across parallel lenses \\
+Delta encoding & Transmitting only what changed since the previous session, referencing the rest by handle \\
+Escalation rate & The frequency with which an agent must request a higher context tier \\
+Fleet & A registered group of repositories treated as one unit for search, impact and execution \\
+Handle & A content addressed reference to a body that can be expanded on request \\
+Impact closure & The deterministic set of files affected by a change, by transitive distance \\
+Intent & A user action sent from a surface to the core, never a direct mutation \\
+Journal & The append only record of decisions anchored to commits \\
+Lens & One perspective in a review: correctness, security or conventions \\
+Mission & An objective decomposed into a ticket graph and executed to completion \\
+Projection & A serialisable snapshot of state prepared for one surface to render \\
+Quarantine & The state of a ticket that exhausted its failure policy and needs a human \\
+Role & An agent specialisation with its own mandate, tool grant and write access \\
+SCP & Structural Context Protocol, the compressed structural representation of a file \\
+Skill & A durable instruction set injected into agent sessions, resolved by precedence \\
+Snapshot & A throwaway worktree containing a change set, used for verification \\
+Surface & One of the six primary product views \\
+Ticket & The unit of autonomous work: one session, one verification, one commit \\
+Tier & A level on the context ladder, from repository skeleton to runtime evidence \\
+\bottomrule
+\caption{Glossary of terms used consistently throughout this document.}
+\end{longtable}
+
+\section{Document maintenance}
+
+This document is the source of truth for the product. Three rules keep it that way.
+
+\begin{enumerate}
+  \item Code that contradicts the document is a defect in one of them, and the discrepancy
+  is resolved before the code lands, not afterwards.
+  \item An amendment lands in the same change as the code it describes, using the amendment
+  prompt in Chapter~\ref{ch:prompts}.
+  \item A new surface, control or capability enters through a story first. If no persona
+  needs it, it does not ship.
+\end{enumerate}

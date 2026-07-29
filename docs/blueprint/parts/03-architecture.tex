@@ -1,0 +1,198 @@
+\chapter{System Architecture}
+\label{ch:architecture}
+
+\section{Layering}
+
+Xyra is organised as five layers. Each layer may call downward and emit events upward. No
+layer may call upward directly. This rule is what keeps the surfaces replaceable and the
+core testable without a display.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  layer/.style={draw=xyraline,fill=xyrapanel,minimum width=118mm,minimum height=13mm,rounded corners=2pt,font=\small},
+  lab/.style={font=\scriptsize\color{xyragrey}}
+]
+\node[layer] (l5) at (0,0) {\textbf{Surfaces} \quad Workbench, Mission Control, Agent Theatre, Inspector, Deck, Atlas};
+\node[layer,below=3mm of l5] (l4) {\textbf{Orchestration} \quad Mission supervisor, council, scheduler, budget, journal};
+\node[layer,below=3mm of l4] (l3) {\textbf{Intelligence} \quad Context engine, compression, retrieval, graph, skills};
+\node[layer,below=3mm of l3] (l2) {\textbf{Workspace} \quad Buffers, syntax, language servers, git, terminal, filesystem};
+\node[layer,below=3mm of l2] (l1) {\textbf{Platform} \quad UI framework, async runtime, storage, process supervision, sandbox};
+
+\draw[-{Stealth[length=2mm]},xyralime,line width=0.8pt] ($(l1.west)+(-6mm,0)$) -- ($(l5.west)+(-6mm,0)$) node[midway,left,lab,rotate=90,anchor=south] {events upward};
+\draw[-{Stealth[length=2mm]},xyragrey,line width=0.8pt] ($(l5.east)+(6mm,0)$) -- ($(l1.east)+(6mm,0)$) node[midway,right,lab,rotate=-90,anchor=south] {calls downward};
+\end{tikzpicture}
+\caption{Five layer architecture with a strict dependency direction.}
+\end{figure}
+
+\section{Process model}
+
+Xyra runs as a small constellation of processes rather than one monolith. The reason is
+containment: an agent process that hangs, a language server that leaks, or an extension that
+panics must never take down the editor, and must never be able to block the interface
+thread.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  proc/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=10mm,minimum width=34mm,font=\small},
+  main/.style={draw=xyralime,line width=1pt,fill=white,rounded corners=2pt,minimum height=12mm,minimum width=40mm,font=\small\bfseries},
+  pipe/.style={-{Stealth[length=2mm]},xyragrey}
+]
+\node[main] (ui) at (0,0) {xyra (UI process)};
+\node[proc,below=14mm of ui] (core) {xyrad (core service)};
+\node[proc,left=16mm of core] (ls) {language servers};
+\node[proc,right=16mm of core] (ag) {agent processes};
+\node[proc,below left=12mm and 4mm of core] (sb) {sandbox runners};
+\node[proc,below right=12mm and 4mm of core] (ext) {WASM extensions};
+
+\draw[pipe] (ui) -- node[right,font=\scriptsize] {local socket, typed messages} (core);
+\draw[pipe] (core) -- node[above,font=\scriptsize] {LSP} (ls);
+\draw[pipe] (core) -- node[above,font=\scriptsize] {ACP} (ag);
+\draw[pipe] (core) -- node[left,font=\scriptsize,xshift=-1mm] {process} (sb);
+\draw[pipe] (core) -- node[right,font=\scriptsize] {host calls} (ext);
+\end{tikzpicture}
+\caption{Process topology. The interface never speaks to an agent or a language server directly.}
+\end{figure}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+  \item[xyra] The interface process. Owns the window, the element tree, input handling and
+  rendering. Holds no authoritative state; it renders a projection pushed from the core and
+  sends intents back.
+
+  \item[xyrad] The core service. Owns buffers, the project model, the context engine, the
+  mission supervisor, the journal and all persistence. Survives interface restarts, which
+  means a crashed window never loses a running mission.
+
+  \item[Language servers] One child per language per workspace, supervised with restart
+  backoff and a health probe.
+
+  \item[Agent processes] External agent binaries speaking the agent client protocol over
+  stdio. Each runs in its own working directory with an environment the core constructs.
+
+  \item[Sandbox runners] Ephemeral processes executing tests inside an isolated worktree.
+  Killed on budget expiry without affecting anything else.
+
+  \item[WASM extensions] Untrusted third party code with an explicit capability list, no
+  ambient filesystem access and no network unless granted.
+\end{description}
+
+\section{Crate topology}
+
+\begin{longtable}{@{}p{0.26\textwidth} p{0.66\textwidth}@{}}
+\toprule
+\textbf{Crate} & \textbf{Responsibility} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Crate} & \textbf{Responsibility} \\
+\midrule
+\endhead
+xyra-ui & Element model wrapper over the vendored UI framework, theme tokens, primitives \\
+xyra-text & Rope buffer, transactions, undo history, multi cursor selection algebra \\
+xyra-syntax & Parser host, incremental reparse, highlight queries, structural selection \\
+xyra-lang & Language server client, capability negotiation, diagnostics, completion \\
+xyra-project & Worktree model, ignore semantics, file watching, path resolution \\
+xyra-vcs & Git operations, status, diff, blame, staging, commit, branch \\
+xyra-term & Terminal grid, PTY supervision, escape parsing, search \\
+xyra-context & Symbol and import graph, retrieval, compression pipeline, budget solver \\
+xyra-memory & Durable stores, caches, journal, mission state, migrations \\
+xyra-agent & Agent process supervision, protocol clients, tool exposure, transcript capture \\
+xyra-mission & Ticket graph, supervisor loop, failure policy, budgets \\
+xyra-verify & Sandbox execution, visual verification, quality assurance sweeps, flags \\
+xyra-fleet & Multi repository registry, cross repository search and impact \\
+xyra-skills & Skill registry, resolution, injection, precedence \\
+xyra-ext & Extension host, capability enforcement, manifest validation \\
+xyra-proto & Message types shared between the interface and the core \\
+xyrad & Core service binary, wiring, supervision tree \\
+xyra & Interface binary, surfaces, keymap, command registry \\
+\bottomrule
+\caption{Crate responsibilities. One crate, one reason to change.}
+\end{longtable}
+
+\section{State ownership and the projection model}
+
+The interface holds no authoritative state. Every surface receives a projection: a
+serialisable snapshot of exactly what it needs to render, versioned so that stale frames are
+discarded. User actions travel back as intents, never as mutations.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=9mm,minimum width=30mm,font=\small},
+  arr/.style={-{Stealth[length=2mm]},xyragrey}
+]
+\node[box] (intent) {Intent};
+\node[box,right=16mm of intent] (core) {Core reducer};
+\node[box,right=16mm of core] (state) {Authoritative state};
+\node[box,below=11mm of state] (proj) {Projection};
+\node[box,left=16mm of proj] (surface) {Surface render};
+
+\draw[arr] (intent) -- (core);
+\draw[arr] (core) -- (state);
+\draw[arr] (state) -- (proj);
+\draw[arr] (proj) -- (surface);
+\draw[arr] (surface) to[out=180,in=180,looseness=1.4] node[left,font=\scriptsize] {user action} (intent);
+\end{tikzpicture}
+\caption{Unidirectional flow. The loop is closed only by user action.}
+\end{figure}
+
+This is what makes the product testable. Every surface can be exercised by feeding
+projections and asserting on the intents produced, with no window open and no GPU present.
+
+\section{Concurrency model}
+
+\begin{itemize}
+  \item The interface thread never blocks. Any operation with unbounded duration is a task
+  on the core's runtime, and the interface shows an intermediate state.
+  \item Buffer edits are applied on a single owning task per buffer. Concurrent edits arrive
+  as transactions and are ordered, never merged optimistically.
+  \item Indexing, embedding and graph construction run on a bounded worker pool sized to
+  physical cores minus two, so the machine stays usable.
+  \item Every long running task carries a cancellation token and a budget. A task without a
+  budget is a defect.
+  \item Agent sessions are supervised with a timeout, an inactivity watchdog and a hard kill
+  path, because the dominant real world failure is a subprocess that never exits.
+\end{itemize}
+
+\section{Persistence}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Store} & \textbf{Technology} & \textbf{Contents} \\
+\midrule
+Project index & SQLite & Symbols, import edges, file hashes, chunk metadata \\
+Vector index & Embedded ANN file & Chunk embeddings, quantised, memory mapped \\
+Mission state & JSON with atomic replace & Ticket graph, attempts, budgets, commits \\
+Journal & Append only JSON lines & Decisions, verdicts, verification results \\
+Caches & Content addressed files & Compression artefacts, screenshots, transcripts \\
+Settings & TOML & User and workspace configuration, layered \\
+\bottomrule
+\end{tabularx}
+\caption{Storage responsibilities. Nothing important lives only in memory.}
+\end{table}
+
+Every store is per workspace under \ctl{.xyra/} except global caches, which live under the
+platform cache directory. Deleting \ctl{.xyra/} must degrade the product to a cold start and
+never corrupt the repository.
+
+\section{Failure containment}
+
+\begin{longtable}{@{}p{0.30\textwidth} p{0.62\textwidth}@{}}
+\toprule
+\textbf{Failure} & \textbf{Containment} \\
+\midrule
+\endhead
+Language server crash & Supervised restart with exponential backoff, diagnostics preserved, editing unaffected \\
+Agent process hang & Inactivity watchdog kills the session, ticket is marked failed, supervisor continues \\
+Extension panic & WASM trap is caught, extension is disabled for the session, a flag is raised \\
+Core service crash & Interface shows a reconnect state, mission resumes from durable state on restart \\
+Interface crash & Core keeps working, mission continues, window reopens onto live state \\
+Disk full & Writes fail closed, mission halts with a stated reason, nothing is half written \\
+Corrupt index & Detected by checksum, index rebuilt in background, structural queries degrade to search \\
+\bottomrule
+\caption{Every failure has a named containment strategy.}
+\end{longtable}

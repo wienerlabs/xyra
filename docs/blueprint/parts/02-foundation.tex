@@ -1,0 +1,152 @@
+\chapter{Open Source Foundation and Licensing}
+\label{ch:foundation}
+
+\section{The commercial constraint}
+
+Every dependency in Xyra must satisfy one rule: it must permit distribution of a binary
+whose corresponding source is not disclosed. In practice this means MIT, Apache~2.0, BSD,
+ISC, Zlib, Unlicense or CC0. It excludes GPL and LGPL in linked form, and it treats MPL~2.0
+as conditionally acceptable because its copyleft is file scoped rather than project scoped.
+
+This rule is what separates the standalone product from the current fork. It is not a
+philosophical preference, it is the precondition for a commercial edition.
+
+\section{Verified license position}
+
+The table below was compiled from the crates.io registry metadata and from the license
+declarations inside each project, rather than from documentation or memory. Every entry was
+checked while writing this document.
+
+\begin{longtable}{@{}p{0.24\textwidth} p{0.30\textwidth} p{0.34\textwidth}@{}}
+\toprule
+\textbf{Component} & \textbf{License} & \textbf{Role in Xyra} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Component} & \textbf{License} & \textbf{Role in Xyra} \\
+\midrule
+\endhead
+\multicolumn{3}{@{}l}{\textit{Interface and rendering}}\\
+gpui & Apache-2.0 & GPU accelerated UI framework, element tree, layout, input \\
+wgpu & MIT OR Apache-2.0 & Graphics abstraction, fallback rendering path \\
+vello & Apache-2.0 OR MIT & Vector rendering, alternative compositor path \\
+cosmic-text & MIT OR Apache-2.0 & Text shaping and layout \\
+swash & Apache-2.0 OR MIT & Font parsing, glyph rasterisation \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Editor core}}\\
+ropey & MIT OR Apache-2.0 & Rope data structure for the text buffer \\
+tree-sitter & MIT & Incremental parsing, concrete syntax trees \\
+tree-sitter-highlight & MIT & Syntax highlighting over the parse tree \\
+similar & Apache-2.0 & Text diffing for review surfaces \\
+imara-diff & Apache-2.0 & High performance line diffing for large files \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Language intelligence}}\\
+lsp-types & MIT & Language server protocol type definitions \\
+tower-lsp or hand rolled client & MIT & Language server transport and lifecycle \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Project and system}}\\
+gix (gitoxide) & MIT OR Apache-2.0 & Pure Rust git implementation \\
+ignore & Unlicense OR MIT & Gitignore aware directory traversal \\
+globset & Unlicense OR MIT & Glob matching for path rules \\
+notify & CC0-1.0 & Filesystem watching \\
+alacritty\_terminal & Apache-2.0 & Terminal emulation backend \\
+tokio & MIT & Asynchronous runtime for the service layer \\
+dashmap & MIT & Concurrent maps for shared indices \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Retrieval and storage}}\\
+tantivy & MIT & Full text and structural search index \\
+usearch & Apache-2.0 & Approximate nearest neighbour vector index \\
+fastembed & Apache-2.0 & Local embedding generation \\
+candle-core & MIT OR Apache-2.0 & Local model execution for embeddings and rerankers \\
+tiktoken-rs & MIT & Token counting for budget accounting \\
+redb & MIT OR Apache-2.0 & Embedded key value store for the durable state \\
+rusqlite & MIT & Relational store for the graph and journal \\
+zstd & MIT & Compression of context artefacts and caches \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Agent integration}}\\
+agent-client-protocol & Apache-2.0 & Protocol for external agent processes \\
+rmcp & Apache-2.0 & Model context protocol client and server \\
+wasmtime & Apache-2.0 WITH LLVM-exception & Sandboxed extension execution \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Conditional}}\\
+nucleo & MPL-2.0 & Fuzzy matching. File scoped copyleft. Acceptable if unmodified, otherwise replace with an MIT matcher. \\
+\bottomrule
+\caption{Verified license position of the proposed dependency set.}
+\end{longtable}
+
+\section{What this table means}
+
+Two conclusions follow directly.
+
+First, \req{a complete IDE can be assembled without touching a single copyleft dependency}.
+The UI framework, the rope, the parser, the terminal, the git implementation, the language
+server client, the vector index and the extension sandbox are all permissive. There is no
+component in the critical path that forces source disclosure.
+
+Second, \req{the highest leverage reuse is gpui}. It is Apache~2.0, it is production proven
+in a shipping editor, and it solves the single hardest problem in this project, which is a
+GPU accelerated UI framework with correct text rendering and input handling on three
+platforms. Writing that from scratch would consume the majority of the engineering budget
+and produce a worse result. Using it is not a compromise on independence, because Apache~2.0
+imposes no disclosure obligation and no upstream coupling beyond the version we pin.
+
+\section{Dependency strategy}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+  \item[Vendor and pin the UI framework.] gpui is vendored into the repository at a pinned
+  revision under its Apache~2.0 license with attribution preserved. Upstream changes are
+  merged deliberately, never automatically. This removes the rebase treadmill that
+  characterises the fork.
+
+  \item[Wrap every third party boundary.] Editor code never calls gpui directly. It calls
+  \ctl{xyra-ui}, a thin internal crate that re-exports the element model we actually use.
+  The same applies to the parser, the git layer and the terminal. The cost is one indirection
+  and the benefit is that any dependency can be replaced without touching product code.
+
+  \item[Prefer boring dependencies.] Fewer, larger, well maintained crates over many small
+  ones. Every dependency is a license question, a supply chain question and a maintenance
+  question.
+
+  \item[No network dependency at build time.] The build must succeed from a vendored source
+  tree with no registry access, which is a hard requirement for reproducibility and for
+  enterprise customers with air gapped environments.
+\end{description}
+
+\section{License hygiene in the repository}
+
+\begin{itemize}
+  \item A machine readable manifest at \ctl{licenses/manifest.toml} lists every dependency,
+  its license, its source and the reason it is present.
+  \item A continuous integration job fails the build when a dependency appears whose license
+  is not on the allow list, using cargo-deny or an equivalent check.
+  \item Vendored third party source lives under \ctl{third\_party/} with its original license
+  file intact and unmodified.
+  \item The notice file shipped with the product aggregates every attribution required by
+  the Apache~2.0 and MIT terms.
+\end{itemize}
+
+\section{Reference implementations worth studying}
+
+These projects are not dependencies. They are prior art whose architecture repays study
+before writing the equivalent subsystem. All are permissively licensed, so reading them
+carries no contamination risk, and porting an approach from them is legally clean when the
+license is respected and attribution given.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Project} & \textbf{License} & \textbf{What to learn from it} \\
+\midrule
+Helix & MPL-2.0 & Multi cursor and selection model, tree-sitter integration depth \\
+Lapce & Apache-2.0 & Rope plus WASM plugin boundary, multi window process model \\
+Zed gpui & Apache-2.0 & Element tree, layout engine, GPU text pipeline \\
+Alacritty & Apache-2.0 & Terminal grid, escape sequence handling, performance discipline \\
+Tantivy & MIT & Index segment design, query planning \\
+Wasmtime & Apache-2.0 & Capability based sandboxing for untrusted extensions \\
+Ripgrep and ignore & MIT & Directory traversal that respects ignore semantics at speed \\
+\bottomrule
+\end{tabularx}
+\caption{Permissively licensed prior art.}
+\end{table}

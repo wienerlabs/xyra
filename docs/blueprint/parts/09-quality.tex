@@ -1,0 +1,182 @@
+\chapter{Quality, Security and Delivery}
+\label{ch:quality}
+
+\section{Testing strategy}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X l}
+\toprule
+\textbf{Level} & \textbf{What it covers} & \textbf{Gate} \\
+\midrule
+Unit & Pure logic: rope operations, solver, graph queries, policy decisions & Every commit \\
+Property & Invariants under random input: edits, undo, selections, graph consistency & Every commit \\
+Golden & Compression output, SCP records, context assembly for fixture repositories & Every commit \\
+Integration & Service and interface across the transport, with real stores & Every commit \\
+Interface & Surfaces driven by projections, asserting emitted intents, no window & Every commit \\
+End to end & A real mission on a fixture repository with a scripted agent & Every merge \\
+Live & A real mission with a real model provider on a sample project & Before release \\
+Soak & A long mission with induced failures and a killed process & Before release \\
+\bottomrule
+\end{tabularx}
+\caption{Test levels and when each gate runs.}
+\end{table}
+
+Two rules matter more than coverage numbers. Every failure path has a test, because failure
+handling is the product. And every test that touches an agent uses a scripted agent by
+default, so the suite is deterministic and free; real providers appear only in the live gate.
+
+\section{Performance budgets}
+
+Budgets are enforced by an automated benchmark that fails the build on regression beyond the
+stated tolerance.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{X l l}
+\toprule
+\textbf{Operation} & \textbf{Budget} & \textbf{Measured on} \\
+\midrule
+Cold start to an interactive window & Under one second & Reference machine, warm cache \\
+Open a file of one hundred thousand lines & Under two hundred milliseconds & Reference machine \\
+Keystroke to rendered frame & Under sixteen milliseconds at the ninety ninth percentile & Reference machine \\
+Incremental reparse after an edit & Under five milliseconds for a typical file & Reference machine \\
+Structural impact query & Under fifty milliseconds on a repository of ten thousand files & Warm index \\
+Context assembly for a ticket & Under one second excluding model latency & Warm index \\
+Snapshot creation for verification & Under two seconds with a warm worktree pool & Reference machine \\
+Memory at rest with a large repository indexed & Under one gigabyte & Reference machine \\
+\bottomrule
+\end{tabularx}
+\caption{Performance budgets. A regression beyond tolerance fails the build.}
+\end{table}
+
+\section{Security model}
+
+\subsection{Trust boundaries}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  zone/.style={draw=xyraline,fill=xyrapanel,rounded corners=3pt,font=\scriptsize,align=center,minimum height=11mm},
+  danger/.style={draw=xyrared,line width=0.9pt,fill=white,rounded corners=3pt,font=\scriptsize,align=center,minimum height=11mm},
+  arr/.style={-{Stealth[length=1.8mm]},xyragrey,font=\scriptsize}
+]
+\node[zone,minimum width=32mm] (dev) {Developer\\trusted};
+\node[zone,minimum width=32mm,right=10mm of dev] (core) {Core service\\trusted};
+\node[danger,minimum width=32mm,right=10mm of core] (agent) {Agent output\\untrusted};
+\node[danger,minimum width=32mm,below=9mm of agent] (ext) {Extensions\\untrusted};
+\node[danger,minimum width=32mm,below=9mm of core] (repo) {Repository content\\untrusted};
+
+\draw[arr] (dev) -- (core);
+\draw[arr] (core) -- node[above] {brief} (agent);
+\draw[arr] (agent) -- node[below,xshift=6mm] {diff, tool calls} (core);
+\draw[arr] (ext) -- node[right] {capability calls} (core);
+\draw[arr] (repo) -- node[right] {content} (core);
+\end{tikzpicture}
+\caption{Trust boundaries. Everything a model or a repository produces is untrusted input.}
+\end{figure}
+
+\subsection{Controls}
+
+\begin{longtable}{@{}p{0.30\textwidth} p{0.62\textwidth}@{}}
+\toprule
+\textbf{Risk} & \textbf{Control} \\
+\midrule
+\endhead
+Prompt injection from repository content & Repository text is data, never instruction. Tool calls originating from content patterns are rejected, and the Context Inspector shows provenance for every item \\
+Secret exfiltration through context & Redaction runs before any content leaves the machine, covering keys, tokens, environment files and private keys, and the redaction is recorded \\
+Malicious extension & Sandboxed execution with an explicit capability list, no ambient filesystem or network, and a trap disables the extension for the session \\
+Destructive agent action & Write access is a property of the role, snapshots are used for execution, and every mutation is a reversible transaction with a commit boundary \\
+Supply chain & Vendored dependencies at pinned revisions, license allow list enforced in continuous integration, signature verification on registry downloads \\
+Credential handling & Provider credentials live in the platform keychain, are never written to the workspace, and are never included in context \\
+Unbounded resource use & Every agent session and verification run carries a timeout, a token budget and a hard kill path \\
+Data at rest & Workspace state is local. Nothing is uploaded without an explicit capability being enabled \\
+\bottomrule
+\caption{Security controls mapped to risks.}
+\end{longtable}
+
+\section{Privacy and telemetry}
+
+Telemetry is off by default and is never a precondition for any feature. When a developer
+enables it, the payload is enumerable in the settings surface before it is sent, contains no
+source code, no file paths and no prompts, and can be inspected in a local log. Crash reports
+are written locally and uploaded only on an explicit action.
+
+\section{Accessibility}
+
+Accessibility is an acceptance criterion on every interface issue rather than a milestone of
+its own.
+
+\begin{itemize}
+  \item Every control has an accessible name and role, and every surface has a logical focus
+  order.
+  \item Every command is reachable from the keyboard, and the palette is the guaranteed path.
+  \item Contrast meets the standard threshold in both themes, verified by an automated check
+  in continuous integration.
+  \item Severity is never conveyed by colour alone; it always carries a glyph and a word.
+  \item Motion respects the platform reduced motion preference, including the activity pulse.
+  \item Screen reader output is verified for the Mission Control and Verification Deck flows,
+  because those are the surfaces that report autonomous work.
+\end{itemize}
+
+\section{Internationalisation}
+
+Strings are externalised from the first commit, because retrofitting is expensive. The
+initial shipping locales are English and Turkish. Locale affects interface strings only;
+identifiers, log output and journal entries remain in English so that artefacts stay
+portable across teams.
+
+\section{Platform support}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Platform} & \textbf{Status} & \textbf{Notes} \\
+\midrule
+macOS arm64 & Primary & Reference development and benchmark target \\
+macOS x86\_64 & Supported & Built from the same source, verified in continuous integration \\
+Linux x86\_64 & Supported & Distributed as a portable single file bundle \\
+Linux arm64 & Best effort & Built, tested less frequently \\
+Windows x86\_64 & Supported & Installer, path length and process semantics handled explicitly \\
+\bottomrule
+\end{tabularx}
+\caption{Platform support matrix.}
+\end{table}
+
+\section{Packaging and updates}
+
+\begin{itemize}
+  \item Artefacts are produced by continuous integration from a clean checkout, never from a
+  developer machine.
+  \item Every artefact carries a checksum and, where the platform supports it, a signature.
+  \item Updates are staged: a fraction of installations receive a release first, and a
+  regression halts the rollout.
+  \item An update never rewrites workspace state in place without a backup that the previous
+  version can still read.
+  \item An air gapped installation path exists, because enterprise customers require it and
+  it also proves the build has no hidden network dependency.
+\end{itemize}
+
+\section{Risk register}
+
+\begin{longtable}{@{}p{0.30\textwidth} p{0.14\textwidth} p{0.48\textwidth}@{}}
+\toprule
+\textbf{Risk} & \textbf{Severity} & \textbf{Mitigation} \\
+\midrule
+\endhead
+Rendering framework churn upstream & Medium & Vendored and pinned, wrapped behind an internal crate so it can be replaced \\
+Model provider terms change & High & Vendor routing is configurable per role, local models are a first class path, no feature depends on one provider \\
+Autonomous run produces plausible but wrong work & High & Verification gate before display, adversarial review, one commit per ticket, journal, easy revert \\
+Context engine underperforms naive stuffing & Medium & Permanent evaluation harness measuring first attempt success, with the naive strategy as the baseline \\
+Scope creep into a general purpose editor & High & Non goals stated in Chapter one, every issue traceable to a story \\
+Single maintainer bottleneck & High & Category partition designed for parallel work, documentation as the source of truth rather than tribal knowledge \\
+Performance regression as features land & Medium & Budgets enforced by benchmark in continuous integration \\
+Extension ecosystem security incident & Medium & Capability sandbox, signature verification, isolation on trap \\
+License contamination through a transitive dependency & High & Allow list enforced mechanically on every build, vendored tree audited \\
+\bottomrule
+\caption{Risk register with mitigations that are implemented rather than aspirational.}
+\end{longtable}

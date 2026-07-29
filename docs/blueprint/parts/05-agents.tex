@@ -1,0 +1,216 @@
+\chapter{The Agent Layer}
+\label{ch:agents}
+
+\section{Roles rather than one assistant}
+
+A single general assistant is the wrong abstraction for autonomous work, because the
+prompting, the tool set and the failure handling that make an implementer effective make a
+reviewer credulous. Xyra runs a team of specialised roles with distinct mandates and distinct
+tool grants.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X l}
+\toprule
+\textbf{Role} & \textbf{Mandate} & \textbf{Write access} \\
+\midrule
+Planner & Decompose an objective into a dependency ordered ticket graph & None \\
+Architect & Produce and defend a design, challenge another design & None \\
+Implementer & Complete exactly one ticket, leave tests passing & Worktree \\
+Reviewer & Cross examine a diff through one lens, return a structured verdict & None \\
+Verifier & Execute tests, render pages, run quality sweeps, report facts & Sandbox only \\
+Repairer & Fix a specific named failure inside a snapshot & Snapshot \\
+Replanner & Split a repeatedly failing ticket into smaller tickets & None \\
+Scribe & Summarise, journal, produce release notes and reports & Documents \\
+\bottomrule
+\end{tabularx}
+\caption{Agent roles. Write access is a property of the role, not of the model.}
+\label{tab:roles}
+\end{table}
+
+Visual verification, quality sweeps and cross repository analysis are capabilities of the
+Verifier role rather than separate roles, which keeps the role set closed at eight. The Agent
+Theatre in Chapter~\ref{ch:interface} renders exactly one lane per role in this table.
+
+The vendor behind each role is configurable, and the default deliberately places the reviewer
+on a different vendor from the implementer. A model reviewing its own output shares its own
+blind spots.
+
+\section{The mission supervisor}
+
+The supervisor is the component that makes unattended work possible. It owns a durable ticket
+graph and drives it to completion without asking the developer anything it can resolve
+itself.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  st/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=8mm,minimum width=26mm,font=\scriptsize,align=center},
+  dec/.style={draw=xyralime,fill=white,diamond,aspect=2.2,inner sep=1pt,font=\scriptsize,align=center},
+  arr/.style={-{Stealth[length=1.8mm]},xyragrey,font=\scriptsize}
+]
+\node[st] (pick) {Pick ready\\ticket};
+\node[st,right=10mm of pick] (run) {Fresh agent\\session};
+\node[dec,right=10mm of run] (ver) {Verified};
+\node[st,right=12mm of ver] (commit) {Commit\\ticket};
+\node[dec,below=9mm of ver] (att) {Attempts\\left};
+\node[st,left=12mm of att] (swap) {Swap vendor,\\retry};
+\node[dec,below=9mm of att] (split) {Splittable};
+\node[st,left=12mm of split] (children) {Replan into\\children};
+\node[st,below=9mm of split] (quar) {Quarantine,\\continue};
+
+\draw[arr] (pick) -- (run);
+\draw[arr] (run) -- (ver);
+\draw[arr] (ver) -- node[above] {yes} (commit);
+\draw[arr] (ver) -- node[right] {no} (att);
+\draw[arr] (att) -- node[above] {yes} (swap);
+\draw[arr] (att) -- node[right] {no} (split);
+\draw[arr] (split) -- node[above] {yes} (children);
+\draw[arr] (split) -- node[right] {no} (quar);
+\draw[arr] (swap) |- (pick);
+\draw[arr] (children) |- (pick);
+\draw[arr] (commit) |- ++(0,10mm) -| (pick);
+\draw[arr] (quar) -| ++(-52mm,0) |- (pick);
+\end{tikzpicture}
+\caption{Supervisor loop. Failure is a policy with four escalations, never a stop.}
+\end{figure}
+
+\subsection{Why fresh sessions}
+
+The central design decision is that each ticket runs in a session that has never seen any
+other ticket. This is counterintuitive until the arithmetic is done. A session that
+accumulates context degrades in two ways: it fills the window, and it accumulates the
+residue of earlier reasoning, including earlier mistakes. A fresh session with a precise
+brief and a compressed structural context reaches higher first attempt success than a long
+running session at ticket fifty, and the total work a mission can perform stops being bounded
+by any window at all.
+
+\subsection{Durability}
+
+Mission state is written atomically after every state transition. The consequences are
+concrete: closing the laptop pauses a mission, a crash loses at most the ticket in flight,
+and resuming is a single command that reads the graph and continues. The state file is the
+mission; the process is disposable.
+
+\subsection{Budgets and brakes}
+
+Autonomy without limits is a liability. Every mission carries hard caps on total sessions,
+wall clock duration, attempts per ticket and consecutive failures, plus a stop flag the
+developer can set at any moment which halts the loop after the ticket in flight completes.
+Exceeding any cap halts the mission with a stated reason rather than continuing on hope.
+
+\section{Verification}
+
+\subsection{Isolated execution}
+
+Verification never runs in the developer's working tree. The supervisor snapshots the
+uncommitted change set into a throwaway worktree and executes the project's own test or build
+command there. The developer's tree is untouched, which means verification can run while the
+developer keeps working, and a failed attempt cannot leave debris behind.
+
+\subsection{Visual verification}
+
+For any change with a reachable page, a verifier renders it headless, captures a screenshot
+and asks a vision capable model whether the result matches the stated intent. The verdict is
+structured, with issues ranked by severity, which is what makes it usable inside an automatic
+fix loop rather than as decoration. A design export can be supplied, in which case the
+comparison is against the intended design rather than against a description.
+
+\subsection{Adversarial review}
+
+The council runs a diff past a rival vendor through independent lenses, by default
+correctness, security and house conventions, executed in parallel. Each lens returns findings
+with severity, and a policy decides whether the aggregate blocks. Policy is per repository and
+per path, so code that touches money or credentials can demand more lenses and block on lower
+severities than code that touches a marketing page.
+
+\subsection{Quality assurance sweeps}
+
+A verifier drives the running application as a hostile user: crawling same origin pages,
+filling every input with type aware adversarial values, clicking aggressively, and collecting
+console errors, uncaught exceptions, server errors, failed requests, accessibility problems
+and load timings. Findings are deduplicated and ranked, then fed back as tickets rather than
+delivered as a raw log.
+
+\section{Skills}
+
+Skills are the mechanism by which a team encodes its own standards so that every agent
+session inherits them without being told.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Skill} & \textbf{Encodes} \\
+\midrule
+Autonomy & Prove before presenting: verify, look at the result, analyse impact before touching shared contracts \\
+Terminal discipline & Never run an interactive command or a process that does not exit, per tool flags tabulated \\
+Conventions & House rules for code, commits and interface copy \\
+Review & The checklist a reviewer applies, including domain specific traps \\
+Domain safety & Rules for money arithmetic, credentials, and any high consequence domain \\
+Shipping & The gate before a change leaves the machine \\
+Prompt discipline & Turning a vague instruction into a scoped one before acting \\
+\bottomrule
+\end{tabularx}
+\caption{The default skill set. Teams add their own.}
+\end{table}
+
+Skills resolve in a precedence chain: workspace, then user, then bundled defaults. A workspace
+skill overrides a user skill of the same name, which lets a team enforce a standard on a
+repository without touching anyone's personal configuration. The Context Inspector shows
+exactly which skills were injected into any given session, because an invisible instruction
+that changes behaviour is a debugging nightmare.
+
+\section{Fleet operations}
+
+A contract rarely lives in one repository. Fleet raises every structural capability from the
+repository to the group.
+
+\begin{itemize}
+  \item Repositories are registered from the developer's version control provider, not from a
+  hand written file, and missing ones are cloned on registration.
+  \item Cross repository search resolves a symbol or endpoint name across every member.
+  \item Cross repository impact separates the repository that defines a contract from those
+  that consume it, and orders the resulting work accordingly.
+  \item A fleet refactor executes the same intent through every affected repository in
+  dependency order, verifying each one independently and preparing linked changes.
+\end{itemize}
+
+\section{Tool surface exposed to agents}
+
+Agents act through a bounded tool set. Every tool is auditable, every tool is capability
+gated, and no tool grants ambient authority.
+
+\begin{longtable}{@{}p{0.24\textwidth} p{0.68\textwidth}@{}}
+\toprule
+\textbf{Tool} & \textbf{Contract} \\
+\midrule
+\endhead
+read\_file & Returns a file at a requested SCP tier or in full, by handle \\
+search\_code & Structural search first, similarity fallback clearly labelled \\
+impact & Deterministic closure for a symbol or file, by transitive distance \\
+graph & Neighbourhood of a file: imports, importers, defined symbols \\
+edit & Applies a transaction to a buffer, always reversible \\
+run\_tests & Executes the project's test command inside a snapshot \\
+verify\_patch & Full verification of the current change set, returns a verdict \\
+render\_check & Renders a page and returns a structured visual verdict \\
+compare\_design & Renders a page and compares it against a design export \\
+qa\_sweep & Drives the running application adversarially, returns ranked defects \\
+fleet\_search & Cross repository search \\
+fleet\_impact & Cross repository impact analysis \\
+journal & Records a decision with its rationale against the current commit \\
+ask\_developer & Escalates a genuine decision as a structured choice with costs \\
+\bottomrule
+\caption{Agent tool surface. Anything not on this list is not reachable.}
+\end{longtable}
+
+\section{Escalation to the developer}
+
+The supervisor escalates only when a decision genuinely belongs to the human: an
+architectural fork with real trade offs, an ambiguity in the objective that changes the
+outcome, or an action with consequences outside the repository. Escalation is never a
+terminal question. It is a structured choice: each option carries its measured cost, its
+dependency weight and a sketch of the resulting structure, and the mission continues on
+unblocked tickets while the choice is pending.

@@ -1,0 +1,275 @@
+\chapter{The Context Engine}
+\label{ch:context}
+
+\section{The objective function}
+
+Every agentic editor faces the same problem and almost none of them state it as an
+optimisation. Given a token budget $B$, choose a set of context items $S$ that maximises the
+probability the agent produces a correct action.
+
+\[
+\max_{S} \; P(\text{correct action} \mid S) \quad \text{subject to} \quad \sum_{i \in S} \text{tokens}(i) \le B
+\]
+
+The naive implementation ranks chunks by embedding similarity and fills the budget until it
+overflows. This is wrong in three distinct ways. It ignores that some items are load bearing
+regardless of similarity, such as the exact signature of the function being modified. It
+ignores that many high similarity items are redundant with each other. And it pays full
+token price for information that could be represented at a fraction of the cost without
+losing decision value.
+
+Xyra treats this as a compression problem with a value model. The engine is built from four
+mechanisms: structural representation, tiered escalation, delta encoding, and a budget
+solver. Around them sit accelerators that reduce latency and cost without changing the
+selected set.
+
+\section{Structural Context Protocol}
+
+The Structural Context Protocol, abbreviated SCP, is the canonical representation of a source
+file inside Xyra. It is not the file text. It is a projection of the file's parse tree into a
+form that preserves everything an agent needs to reason about the file's interface and
+dependencies, while discarding the bodies it does not need.
+
+An SCP record for a file contains the module path and language, the ordered list of exported
+and internal symbols with their full signatures, type declarations in full, documentation
+comments attached to symbols, the import list resolved to concrete paths, the outbound call
+edges by symbol, and a stable content hash per symbol body so a body can be requested later
+by handle.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l r r X}
+\toprule
+\textbf{Representation} & \textbf{Tokens} & \textbf{Ratio} & \textbf{Preserves} \\
+\midrule
+Raw file text & 3200 & 1.00 & Everything \\
+SCP level 2 & 980 & 0.31 & Signatures, types, docs, imports, call edges, body handles \\
+SCP level 1 & 420 & 0.13 & Signatures, types, imports \\
+SCP level 0 & 130 & 0.04 & Module path, exported symbol names, import list \\
+\bottomrule
+\end{tabularx}
+\caption{Indicative compression profile for a typical eight hundred line source file. Ratios are
+representative of the design target, and the harness in Chapter~\ref{ch:quality} measures the
+real distribution per language.}
+\end{table}
+
+The critical property is that SCP is \req{lossless with respect to the interface}. An agent
+reading SCP level 2 knows every symbol it can call, with exact parameter types and return
+types. It does not know how those symbols are implemented, and in the majority of tasks it
+does not need to. When it does, it asks.
+
+\section{Tiered escalation}
+
+Context is assembled as a ladder, and the agent climbs it only where it must. This inverts
+the usual flow, in which the editor guesses what the agent needs before the agent has
+reasoned about the task.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  tier/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=9mm,minimum width=112mm,font=\small},
+  arr/.style={-{Stealth[length=2mm]},xyralime}
+]
+\node[tier] (t0) at (0,0) {\textbf{Tier 0} \; Repository skeleton: directory shape, module names, entry points};
+\node[tier,below=4mm of t0] (t1) {\textbf{Tier 1} \; SCP level 1 for the impact closure of the task};
+\node[tier,below=4mm of t1] (t2) {\textbf{Tier 2} \; SCP level 2 for the files being edited plus their direct callers};
+\node[tier,below=4mm of t2] (t3) {\textbf{Tier 3} \; Full bodies, fetched by handle on explicit request};
+\node[tier,below=4mm of t3] (t4) {\textbf{Tier 4} \; Runtime evidence: test output, traces, screenshots, logs};
+\draw[arr] (t0.east) -- ++(6mm,0) |- (t1.east);
+\draw[arr] (t1.east) -- ++(6mm,0) |- (t2.east);
+\draw[arr] (t2.east) -- ++(6mm,0) |- (t3.east);
+\draw[arr] (t3.east) -- ++(6mm,0) |- (t4.east);
+\end{tikzpicture}
+\caption{The context ladder. Escalation is driven by the agent's own tool calls, not by
+the editor's guess.}
+\end{figure}
+
+Tier~0 and Tier~1 are pushed into the session automatically because they are cheap and
+always relevant. Tier~2 is computed from the deterministic impact closure described in
+Section~\ref{sec:structural}. Tier~3 and Tier~4 are pulled by the agent through tools, which
+means the cost is paid only when the information is actually wanted.
+
+\section{Structural retrieval}
+\label{sec:structural}
+
+Before any embedding is consulted, Xyra answers the question structurally.
+
+\begin{description}[style=nextline,leftmargin=0pt]
+  \item[Import graph.] Parsed from source, resolved to concrete files, stored as edges. Gives
+  the exact set of files that would break if a module changes, by transitive distance.
+  \item[Symbol table.] Every definition with its kind, location and visibility, so a symbol
+  name resolves to a definition without similarity search.
+  \item[Call edges.] Outbound calls per symbol, which produces a call closure for a change to
+  a single function rather than a whole file.
+  \item[Test mapping.] Which test files exercise which source files, derived from imports and
+  from execution traces when available. This makes the verification loop targeted rather than
+  running the whole suite each time.
+  \item[Blame and history.] Which commits last touched the region, which gives an agent the
+  reason a line exists before it deletes it.
+\end{description}
+
+Embedding search is consulted for a narrow class of questions: locating behaviour described
+in prose when the developer does not know the symbol name. It is a fallback, and the
+interface labels its results as such so the developer can see when the machine is guessing.
+
+\section{Semantic delta encoding}
+
+Within a mission, consecutive sessions overlap heavily. Re-sending the same skeleton on every
+ticket wastes a large fraction of the budget. Xyra addresses this with a delta protocol.
+
+The core maintains, per mission, a content addressed dictionary of context items already
+transmitted. When assembling the next session, items already in the dictionary are referenced
+by handle rather than repeated, and the session preamble carries only the delta: what changed
+since the last transmission, plus the handles for everything unchanged.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X r}
+\toprule
+\textbf{Element} & \textbf{Encoding} & \textbf{Cost} \\
+\midrule
+Unchanged file, previously sent & Handle reference with symbol list & Tens of tokens \\
+Changed file & Delta against the previous SCP record & Proportional to the change \\
+New file in scope & Full SCP record at the required tier & Full record cost \\
+Removed from scope & Explicit eviction notice & Negligible \\
+\bottomrule
+\end{tabularx}
+\caption{Delta encoding between sessions in a mission.}
+\end{table}
+
+Because each ticket runs in a fresh session, the dictionary is not a context window trick. It
+is a compact resumption record that lets a new session reach the same understanding as its
+predecessor for a fraction of the tokens.
+
+\section{The budget solver}
+
+Given candidate items with an estimated value and a measured token cost, selection is a
+knapsack problem with dependencies and redundancy penalties.
+
+\begin{itemize}
+  \item \req{Value} combines structural proximity to the task target, recency of change,
+  authorship of the failing test, and explicit developer pinning. Similarity contributes, but
+  it never dominates a structural signal.
+  \item \req{Cost} is measured with a real tokeniser for the target model, not estimated by
+  character count. Estimating by characters is wrong by up to forty percent on code.
+  \item \req{Redundancy} is penalised. Two chunks with near identical content contribute once.
+  \item \req{Dependencies} are respected. Including a symbol implies including the types in
+  its signature.
+  \item \req{Floors} are enforced. The file being edited is always at Tier~2 regardless of the
+  solver's opinion, because omitting it produces confident nonsense.
+\end{itemize}
+
+The solver runs greedily by value density with a repair pass, which is fast enough to run on
+every assembly and close enough to optimal that the difference does not matter in practice.
+
+\section{Accelerators}
+
+Compression reduces cost. Accelerators reduce latency and repeated work. They do not change
+which items are selected, which keeps them safe to enable by default.
+
+\begin{longtable}{@{}p{0.28\textwidth} p{0.64\textwidth}@{}}
+\toprule
+\textbf{Accelerator} & \textbf{Mechanism} \\
+\midrule
+\endhead
+Stable prefix ordering & Context is emitted in a canonical order with the invariant material
+first, so provider side prefix caches hit across sessions instead of missing on reordering. \\
+Speculative prefetch & While the agent is reasoning, the graph predicts the next files it
+will request and warms their SCP records and bodies. \\
+Incremental embedding & Content hashed per chunk, so only changed chunks are re-embedded.
+A file rename costs nothing. \\
+Quantised vector index & Embeddings stored quantised and memory mapped, which keeps a large
+repository index resident without dominating memory. \\
+Local reranking & A small cross encoder run locally reorders the candidate set before the
+budget solver, which improves selection quality without a network call. \\
+Parallel lens execution & Independent review lenses run concurrently rather than in
+sequence, so an adversarial review costs one lens of latency rather than three. \\
+Warm sandbox worktrees & A pool of prepared worktrees with dependencies already installed,
+so verification does not pay the setup cost on every ticket. \\
+Test selection & The test mapping restricts verification to the tests that can be affected,
+with a full suite run at ticket boundaries and before completion. \\
+Streaming to disk & Agent output is persisted as it arrives, so a crashed session is
+resumable and a long transcript never lives only in memory. \\
+Compression of artefacts & Transcripts, screenshots and traces are stored compressed and
+content addressed, deduplicated across missions. \\
+\bottomrule
+\caption{Latency and cost accelerators.}
+\end{longtable}
+
+\section{Context expansion integrations}
+
+Structural knowledge of the repository is necessary but not sufficient. A large class of
+agent errors comes from information that simply is not in the code. These integrations bring
+that information into the ladder as first class context, each behind an explicit capability
+so a developer can see and control what leaves the machine.
+
+\begin{longtable}{@{}p{0.26\textwidth} p{0.30\textwidth} p{0.36\textwidth}@{}}
+\toprule
+\textbf{Integration} & \textbf{Brings in} & \textbf{Answers the question} \\
+\midrule
+\endhead
+Language server & Hover types, call hierarchy, references, definitions & What is the real type here, who calls this \\
+Version history & Blame, commit messages, pull request bodies & Why does this line exist \\
+Issue tracker & Linked issues, acceptance criteria & What was actually asked for \\
+Documentation fetch & Current library documentation by version & What is the correct API today, not at training time \\
+Runtime traces & Execution paths, values at failure & What actually happened, not what should have \\
+Test results & Failure output, flake history & Which failures are real \\
+Design assets & Exported mockups, design tokens & What is this supposed to look like \\
+Schema and migrations & Database schema, pending migrations & What shape is the data \\
+Observability & Error rates, slow queries, recent incidents & What is breaking in production \\
+Dependency registry & Package sizes, versions, advisories & What does adding this cost \\
+Fleet siblings & Contracts consumed by other repositories & Who else breaks if this changes \\
+Terminal history & Recent commands and their output & What has the developer already tried \\
+\bottomrule
+\caption{Context expansion integrations and the question each one closes.}
+\end{longtable}
+
+\section{The assembly pipeline}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  st/.style={draw=xyraline,fill=xyrapanel,rounded corners=2pt,minimum height=8.5mm,minimum width=27mm,font=\scriptsize,align=center},
+  arr/.style={-{Stealth[length=1.8mm]},xyragrey}
+]
+\node[st] (task) {Task and\\target};
+\node[st,right=7mm of task] (struct) {Structural\\closure};
+\node[st,right=7mm of struct] (cand) {Candidate\\set};
+\node[st,right=7mm of cand] (rank) {Local\\rerank};
+\node[st,below=8mm of rank] (solve) {Budget\\solver};
+\node[st,left=7mm of solve] (delta) {Delta\\encode};
+\node[st,left=7mm of delta] (emit) {Emit in\\stable order};
+\node[st,left=7mm of emit] (sess) {Session\\preamble};
+
+\draw[arr] (task) -- (struct);
+\draw[arr] (struct) -- (cand);
+\draw[arr] (cand) -- (rank);
+\draw[arr] (rank) -- (solve);
+\draw[arr] (solve) -- (delta);
+\draw[arr] (delta) -- (emit);
+\draw[arr] (emit) -- (sess);
+
+\node[st,above=8mm of cand,draw=xyralime] (vec) {Vector\\fallback};
+\draw[arr,dashed] (vec) -- (cand);
+\end{tikzpicture}
+\caption{Context assembly. Similarity search enters only as a labelled fallback.}
+\end{figure}
+
+\section{Measurement}
+
+None of this is worth shipping unless it is measured. The context engine carries a permanent
+evaluation harness with four metrics, reported per mission and visible in the Context
+Inspector.
+
+\begin{itemize}
+  \item \req{Budget utilisation.} Tokens spent versus tokens available, and the fraction
+  spent on each tier.
+  \item \req{Compression ratio.} Tokens emitted versus tokens the naive representation would
+  have required for the same item set.
+  \item \req{Escalation rate.} How often the agent had to climb to Tier~3, which is the
+  signal that the lower tiers are under specified.
+  \item \req{First attempt success.} The fraction of tickets whose first session passes
+  verification, which is the only end to end measure that matters.
+\end{itemize}

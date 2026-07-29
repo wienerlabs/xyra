@@ -1,0 +1,428 @@
+\chapter{Interface Specification}
+\label{ch:interface}
+
+This chapter specifies every surface, every region and every control. Each control carries a
+stable identifier used by the implementation, the automated interface tests and the
+accessibility layer. A control that is not in this chapter does not ship.
+
+\section{Design system}
+
+\subsection{Tokens}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Token} & \textbf{Value} & \textbf{Applied to} \\
+\midrule
+space.1 to space.8 & 2, 4, 6, 8, 12, 16, 24, 32 & All padding and gaps, no arbitrary values \\
+radius.sm / md / lg & 4, 6, 10 & Controls, cards, panels \\
+control.height.sm & 28 & Compact toolbar controls \\
+control.height.md & 34 & Default buttons, inputs \\
+control.height.lg & 42 & Primary actions, empty state actions \\
+text.xs to text.xl & 11, 12, 13, 15, 19 & Labels, body, headings \\
+icon.sm / md / lg & 14, 16, 20 & Inline, control, feature \\
+elevation.0 to 3 & Flat, subtle, raised, floating & Panels, popovers, dialogs, drag \\
+\bottomrule
+\end{tabularx}
+\caption{Design tokens. Sizes are in logical pixels at a scale factor of one.}
+\end{table}
+
+\subsection{Rules that are not negotiable}
+
+\begin{itemize}
+  \item Every control carries a visible text label unless it is in a dense toolbar, and even
+  then it carries an accessible name and a tooltip. Icon only interfaces are a discoverability
+  failure.
+  \item Minimum interactive target is thirty four logical pixels in the primary flow.
+  \item Sentence case everywhere. No capitalised words in interface copy.
+  \item Every destructive action is either reversible or confirmed, never both silent and
+  permanent.
+  \item Every long running action shows determinate progress when a total is known, and an
+  elapsed counter when it is not.
+  \item Colour never carries meaning alone. Severity is colour plus a glyph plus a word.
+\end{itemize}
+
+\section{Window anatomy}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  reg/.style={draw=xyraline,fill=xyrapanel,font=\scriptsize,align=center},
+  hi/.style={draw=xyralime,line width=0.9pt,fill=white,font=\scriptsize,align=center}
+]
+\draw[draw=xyragrey,line width=1pt,rounded corners=3pt] (0,0) rectangle (14,9.4);
+\node[reg,minimum width=13.6cm,minimum height=0.7cm] at (7,9.0) {Title bar: project, branch, mission pill, model pill, window controls};
+\node[reg,minimum width=1.0cm,minimum height=6.9cm] at (0.55,5.0) {A\\c\\t\\i\\v\\i\\t\\y};
+\node[reg,minimum width=2.6cm,minimum height=6.9cm] at (2.45,5.0) {Left dock\\(Explorer,\\Search,\\Source control,\\Atlas)};
+\node[hi,minimum width=5.6cm,minimum height=4.4cm] at (6.6,6.25) {Editor group\\tabs, breadcrumb, gutter,\\code, inline agent affordances};
+\node[reg,minimum width=5.6cm,minimum height=2.3cm] at (6.6,2.45) {Bottom dock\\Terminal, Problems, Verification Deck, Output};
+\node[hi,minimum width=3.6cm,minimum height=6.9cm] at (11.9,5.0) {Right dock\\Mission Control,\\Agent Theatre,\\Context Inspector,\\Chat};
+\node[reg,minimum width=13.6cm,minimum height=0.55cm] at (7,1.05) {Status bar: panel toggles with labels, diagnostics, verification, tokens, cost, EKG};
+\end{tikzpicture}
+\caption{Window regions. The right dock is where autonomous work is observed and steered.}
+\end{figure}
+
+\section{Title bar}
+
+\begin{longtable}{@{}p{0.30\textwidth} p{0.24\textwidth} p{0.36\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Label} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.title.project & Project name & Opens the recent projects menu \\
+ctl.title.branch & Branch name with dirty dot & Opens branch switcher with search \\
+ctl.title.mission & Mission pill, for example \ctl{7/19} & Present only during a mission. Click focuses Mission Control. Shows a determinate ring \\
+ctl.title.model & Active model and role routing & Opens the routing popover: implementer, reviewer, planner, embedding \\
+ctl.title.share & Share & Opens the collaboration menu when enabled \\
+ctl.title.zoom & Window controls & Platform native \\
+\bottomrule
+\caption{Title bar controls.}
+\end{longtable}
+
+\section{Activity bar}
+
+Vertical, icon plus short label, ordered and reorderable. Each entry toggles a dock panel and
+shows a badge when it has unseen state. Five entries open the primary surfaces named in
+Chapter~\ref{ch:thesis}; the remainder open supporting panels that live inside the Workbench
+surface rather than constituting surfaces of their own.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l l X}
+\toprule
+\textbf{Control} & \textbf{Label} & \textbf{Badge} & \textbf{Opens} \\
+\midrule
+ctl.activity.explorer & Files & Modified count & Explorer \\
+ctl.activity.search & Search & Match count & Search \\
+ctl.activity.vcs & Git & Changed count & Source control \\
+ctl.activity.mission & Mission & Progress ring & Mission Control \\
+ctl.activity.agents & Agents & Active lanes & Agent Theatre \\
+ctl.activity.context & Context & Budget percent & Context Inspector \\
+ctl.activity.verify & Verify & Failing count & Verification Deck \\
+ctl.activity.atlas & Atlas & None & Atlas \\
+ctl.activity.ext & Extensions & Update count & Extensions \\
+\bottomrule
+\end{tabularx}
+\caption{Activity bar entries.}
+\end{table}
+
+\section{Workbench: the editor surface}
+
+\subsection{Tab strip}
+
+\begin{longtable}{@{}p{0.30\textwidth} p{0.62\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.tab.item & File name, dirty dot, diagnostic underline, close on middle click \\
+ctl.tab.agentmark & A small marker on tabs whose content was written by an agent and not yet reviewed by a human \\
+ctl.tab.pin & Pin, keeps the tab through bulk close \\
+ctl.tab.split & Split right, split down \\
+ctl.tab.overflow & Overflow list with search when tabs exceed the width \\
+ctl.tab.newfile & New file in this group \\
+\bottomrule
+\caption{Tab strip controls.}
+\end{longtable}
+
+\subsection{Gutter and inline affordances}
+
+\begin{longtable}{@{}p{0.30\textwidth} p{0.62\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.gutter.line & Line numbers, relative mode optional \\
+ctl.gutter.fold & Fold and unfold by syntax node \\
+ctl.gutter.vcs & Added, modified and removed markers, click opens the inline diff \\
+ctl.gutter.blame & Inline blame on hover, showing the commit and its message \\
+ctl.gutter.agent & Marker on ranges an agent changed in the current mission, with the ticket identifier \\
+ctl.inline.ask & Inline agent prompt at the cursor, opened with a shortcut \\
+ctl.inline.explain & Explain this symbol, uses structural context rather than a raw dump \\
+ctl.inline.impact & Show impact for the symbol under the cursor, opens the closure in Atlas \\
+ctl.inline.verify & Verify this file now, runs mapped tests only \\
+ctl.inline.accept & Accept the agent range, clears the marker \\
+ctl.inline.revert & Revert the agent range to the pre mission state \\
+\bottomrule
+\caption{Gutter and inline controls.}
+\end{longtable}
+
+\subsection{Breadcrumb and minimap}
+
+\begin{itemize}
+  \item \ctl{ctl.breadcrumb.segment} navigates by structural path, module then type then function,
+  each segment opening a filtered symbol list.
+  \item \ctl{ctl.minimap.toggle} switches the minimap between off, code and heat, where heat colours
+  the map by how much agent attention each region received in the current mission.
+\end{itemize}
+
+\section{Mission Control}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  reg/.style={draw=xyraline,fill=xyrapanel,font=\scriptsize,align=center},
+  hi/.style={draw=xyralime,line width=0.9pt,fill=white,font=\scriptsize,align=center}
+]
+\draw[draw=xyragrey,line width=1pt,rounded corners=3pt] (0,0) rectangle (7.6,10.2);
+\node[reg,minimum width=7.2cm,minimum height=1.1cm] at (3.8,9.5) {Objective, status, mission identifier};
+\node[hi,minimum width=7.2cm,minimum height=1.0cm] at (3.8,8.2) {Progress bar, tickets done over total, elapsed};
+\node[reg,minimum width=7.2cm,minimum height=0.85cm] at (3.8,7.05) {Start, Pause, Stop, Resume, Replan};
+\node[reg,minimum width=7.2cm,minimum height=0.85cm] at (3.8,6.05) {Budget: sessions, hours, consecutive failures};
+\node[hi,minimum width=7.2cm,minimum height=3.4cm] at (3.8,4.05) {Ticket list\\identifier, title, state glyph,\\attempts, commit, duration};
+\node[reg,minimum width=7.2cm,minimum height=1.6cm] at (3.8,1.55) {Quarantine drawer\\failure text and the split proposal};
+\node[reg,minimum width=7.2cm,minimum height=0.5cm] at (3.8,0.45) {Open journal, open cockpit};
+\end{tikzpicture}
+\caption{Mission Control layout.}
+\end{figure}
+
+\begin{longtable}{@{}p{0.28\textwidth} p{0.18\textwidth} p{0.46\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Label} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.mission.objective & Objective field & Multi line, editable before start, read only during a run \\
+ctl.mission.plan & Plan & Produces the ticket graph without executing, so it can be reviewed \\
+ctl.mission.start & Start & Plans if needed, then runs to completion \\
+ctl.mission.pause & Pause & Halts after the ticket in flight, state preserved \\
+ctl.mission.resume & Resume & Continues from durable state, also available after a crash \\
+ctl.mission.stop & Stop & Halts and marks the mission stopped \\
+ctl.mission.background & Run in background & Detaches the supervisor so it survives closing the window \\
+ctl.mission.budget & Budget & Popover with sessions, hours, attempts per ticket, consecutive failures \\
+ctl.mission.ticket & Ticket row & Click opens the ticket detail: brief, diff, verification output, transcript \\
+ctl.mission.retry & Retry ticket & Requeues a quarantined ticket, optionally with a different vendor \\
+ctl.mission.split & Split ticket & Sends the ticket to the replanner and inserts the children \\
+ctl.mission.skip & Skip ticket & Marks it abandoned and unblocks its dependants where possible \\
+ctl.mission.edit & Edit ticket & Modifies title, scope and files before it runs \\
+ctl.mission.reorder & Drag handle & Reorders within the constraints of the dependency graph \\
+ctl.mission.addticket & Add ticket & Inserts a manual ticket into the graph \\
+ctl.mission.journal & Open journal & Opens the decision journal filtered to this mission \\
+ctl.mission.cockpit & Open cockpit & Opens the end of mission summary and the approval gate \\
+\bottomrule
+\caption{Mission Control controls.}
+\end{longtable}
+
+\subsection{Ticket states}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{State} & \textbf{Glyph} & \textbf{Meaning} \\
+\midrule
+pending & Hollow circle & Waiting for its dependencies \\
+ready & Outlined circle & Dependencies satisfied, queued \\
+running & Filled ring, animated & A session is executing it now \\
+verifying & Half filled ring & Session finished, tests executing in a snapshot \\
+done & Check & Verified and committed, commit hash shown \\
+retry & Rotating arrow & Failed, queued again with a different vendor \\
+split & Branch glyph & Replaced by children \\
+quarantined & Warning triangle & Exhausted its policy, needs a human \\
+skipped & Dash & Abandoned deliberately \\
+\bottomrule
+\end{tabularx}
+\caption{Ticket state vocabulary. Every state has a glyph, a colour and a word.}
+\end{table}
+
+\section{Agent Theatre}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  lane/.style={draw=xyraline,fill=xyrapanel,minimum width=10.6cm,minimum height=0.85cm,font=\scriptsize,align=left},
+  hi/.style={draw=xyralime,line width=0.9pt,fill=white,minimum width=10.6cm,minimum height=0.85cm,font=\scriptsize,align=left}
+]
+\draw[draw=xyragrey,line width=1pt,rounded corners=3pt] (0,0) rectangle (11.4,6.6);
+\node[font=\scriptsize\bfseries] at (5.7,6.15) {Agent Theatre: live lanes, artefacts, cost};
+\node[lane] at (5.7,5.4) {\hspace{2mm} Planner \quad idle \quad last: ticket graph, 19 nodes};
+\node[hi] at (5.7,4.45) {\hspace{2mm} Implementer \quad running ticket 7 \quad 42s \quad 8.1k tokens};
+\node[lane] at (5.7,3.5) {\hspace{2mm} Reviewer \quad queued \quad lenses: correctness, security, conventions};
+\node[hi] at (5.7,2.55) {\hspace{2mm} Verifier \quad running \quad snapshot tests \quad 14/38 passed};
+\node[lane] at (5.7,1.6) {\hspace{2mm} Repairer \quad idle \quad last: fixed a null guard in ticket 5};
+\node[lane] at (5.7,0.65) {\hspace{2mm} Scribe \quad idle \quad last: journal entry for ticket 6};
+\end{tikzpicture}
+\caption{Agent Theatre. One lane per role from Table~\ref{tab:roles}, each showing its current
+act and its last artefact. Architect and Replanner lanes appear only while those roles are
+active, so an idle mission shows six lanes rather than eight.}
+\end{figure}
+
+\begin{longtable}{@{}p{0.28\textwidth} p{0.64\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.theatre.lane & Expands to the lane's transcript, tool calls and produced artefacts \\
+ctl.theatre.artifact & Opens the artefact: a diff, a verdict, a screenshot, a report \\
+ctl.theatre.kill & Terminates the session in that lane and marks its ticket failed \\
+ctl.theatre.vendor & Switches the vendor for that role for subsequent sessions \\
+ctl.theatre.follow & Follows the active lane automatically as work moves between roles \\
+ctl.theatre.cost & Toggles the cost column between tokens, requests and elapsed \\
+ctl.theatre.graph & Switches from lanes to a node graph showing which role handed work to which \\
+ctl.theatre.filter & Filters lanes by role or by ticket \\
+\bottomrule
+\caption{Agent Theatre controls.}
+\end{longtable}
+
+\section{Context Inspector}
+
+\begin{longtable}{@{}p{0.28\textwidth} p{0.64\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.context.budget & Budget bar: used versus available, segmented by tier, with the token count \\
+ctl.context.item & One row per included item: path, tier, tokens, why it was included \\
+ctl.context.why & Explains the inclusion reason: structural closure, pinned, similarity fallback, skill \\
+ctl.context.pin & Pins an item so the solver must always include it \\
+ctl.context.exclude & Excludes an item for this workspace and writes the rule to settings \\
+ctl.context.expand & Raises an item's tier, for example from signatures to full body \\
+ctl.context.collapse & Lowers an item's tier to reclaim budget \\
+ctl.context.heat & Heat map over the file tree, coloured by accumulated agent attention \\
+ctl.context.skills & Lists the skills injected into the current session with their source \\
+ctl.context.integrations & Shows which expansion integrations contributed, with a capability toggle each \\
+ctl.context.compression & Shows the compression ratio and the escalation rate for the session \\
+ctl.context.export & Exports the exact assembled context for reproduction and debugging \\
+\bottomrule
+\caption{Context Inspector controls.}
+\end{longtable}
+
+\section{Verification Deck}
+
+\begin{longtable}{@{}p{0.28\textwidth} p{0.64\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.verify.run & Verify now: snapshots the change set and runs the mapped tests \\
+ctl.verify.full & Full suite: runs everything rather than the mapped subset \\
+ctl.verify.result & A run: command, exit code, duration, failing tests, output tail \\
+ctl.verify.rerun & Reruns a single failing test in isolation \\
+ctl.verify.repair & Hands the failure to the repairer inside the snapshot \\
+ctl.verify.visual & Renders the configured page and returns a visual verdict \\
+ctl.verify.compare & Compares the render against a design export \\
+ctl.verify.qa & Runs an adversarial sweep against the running application \\
+ctl.verify.flags & Security and cost flags with severity, file and line \\
+ctl.verify.policy & Opens the verification policy for this repository \\
+ctl.verify.history & Previous runs with their verdicts, filterable by ticket \\
+\bottomrule
+\caption{Verification Deck controls.}
+\end{longtable}
+
+\section{Atlas}
+
+\begin{longtable}{@{}p{0.28\textwidth} p{0.64\textwidth}@{}}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+\endhead
+ctl.atlas.mode & Switches between topology, impact, ownership and history views \\
+ctl.atlas.filter & Filters nodes by path, language or module \\
+ctl.atlas.focus & Focuses a node and dims everything outside its neighbourhood \\
+ctl.atlas.depth & Sets transitive depth for impact, from one to unbounded \\
+ctl.atlas.open & Opens the file at the definition \\
+ctl.atlas.mission & Creates a mission scoped to the current selection \\
+ctl.atlas.fleet & Switches the scope from this repository to the registered fleet \\
+ctl.atlas.export & Exports the current view as a vector image for documentation \\
+\bottomrule
+\caption{Atlas controls.}
+\end{longtable}
+
+\section{Status bar}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Control} & \textbf{Behaviour} \\
+\midrule
+ctl.status.panels & Labelled toggles: Files, Search, Git, Mission, Agents, Context, Verify, Terminal \\
+ctl.status.diag & Errors and warnings, click opens Problems \\
+ctl.status.verify & Last verification verdict with a glyph, click opens the Deck \\
+ctl.status.tokens & Tokens used in the current session and the budget remaining \\
+ctl.status.cost & Session cost when the provider reports it, otherwise request count \\
+ctl.status.ekg & Activity pulse driven by real agent state: idle, thinking, verifying, failing \\
+ctl.status.position & Cursor position, selection size, indentation, encoding, language \\
+\bottomrule
+\end{tabularx}
+\caption{Status bar controls.}
+\end{table}
+
+\section{Command palette and decisions}
+
+The palette is the universal entry point and is required to reach every command in this
+document. It supports three modes: commands, symbols with a leading hash, and files with a
+leading slash. Missions are startable directly from it with a leading exclamation mark.
+
+Decision cards replace terminal questions. When an agent reaches a genuine fork it emits a
+choice, and the interface renders two or three cards side by side, each carrying the option
+name, its measured cost, its structural consequence and a code sketch. Selecting a card
+records the decision in the journal with its rationale and resumes the mission.
+
+\section{First run}
+
+\begin{enumerate}
+  \item Welcome: product statement, open a project, clone from a provider.
+  \item Model routing: choose the implementer, the reviewer, the planner and the embedding
+  model, with a local only option offered explicitly.
+  \item Sign in to the chosen providers, each with its own state indicator.
+  \item Index the project, showing determinate progress and what is being built.
+  \item Optional fleet registration.
+  \item A guided first mission on a scoped objective, so the developer sees the whole loop
+  before trusting it with real work.
+\end{enumerate}
+
+\section{Keymap}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Binding} & \textbf{Command} \\
+\midrule
+mod+shift+p & Command palette \\
+mod+p & Files \\
+mod+shift+f & Search across the project \\
+mod+i & Inline agent prompt at the cursor \\
+mod+m & Toggle Mission Control \\
+mod+shift+m & Start or resume the mission \\
+mod+alt+m & Stop the mission \\
+mod+g & Toggle Agent Theatre \\
+mod+k then c & Toggle Context Inspector \\
+mod+shift+v & Verify now \\
+mod+alt+v & Full verification \\
+mod+shift+a & Toggle Atlas \\
+mod+alt+i & Impact for the symbol under the cursor \\
+mod+j & Toggle terminal \\
+mod+enter & Accept the agent range under the cursor \\
+mod+backspace & Revert the agent range under the cursor \\
+\bottomrule
+\end{tabularx}
+\caption{Default bindings. Every one is rebindable and every command is reachable without one.}
+\end{table}
+
+\section{States that must be designed, not improvised}
+
+\begin{longtable}{@{}p{0.26\textwidth} p{0.66\textwidth}@{}}
+\toprule
+\textbf{State} & \textbf{Requirement} \\
+\midrule
+\endhead
+Empty project & Explains what to do next with a primary action, never a blank pane \\
+Indexing & Determinate progress, the product remains usable, agents wait rather than guess \\
+No model configured & Blocks agent surfaces with a direct route to routing settings \\
+Provider unauthenticated & Inline sign in with the exact command, never a silent failure \\
+Mission running & Every surface shows it, and closing the window does not kill it \\
+Verification failing & Failure is the loudest thing on screen, with the exact command to reproduce \\
+Quarantined ticket & Failure text and the proposed split, with one click to accept the split \\
+Offline & Local capabilities keep working and remote ones are visibly disabled \\
+Large repository & Progressive indexing, structural queries available before embeddings finish \\
+Conflicting edits & The developer's edit always wins, the agent range is marked stale and reverifies \\
+\bottomrule
+\caption{Designed states.}
+\end{longtable}
